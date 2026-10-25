@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { DateTime } from 'luxon';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FileOpener } from '@capacitor-community/file-opener';
+import { Printer } from '@capgo/capacitor-printer';
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -16,7 +18,15 @@ import { Capacitor } from '@capacitor/core';
  * @param {Array} records - 治疗记录数组
  * @returns {Promise<Object>} - 处理结果，包含success、message等字段
  */
-export async function exportMultipleRecordsToExcel(records, dateRange = null) {
+/**
+ * 按日期范围生成导出文件名（文件名中日期为 YYYYMMDD，无分隔符）
+ */
+export function buildRangeFileName(startDate, endDate) {
+  const compact = s => String(s).replace(/[\/\-]/g, '');
+  return `治疗记录_${compact(startDate)}_至_${compact(endDate)}.xlsx`;
+}
+
+export async function exportMultipleRecordsToExcel(records, dateRange = null, options = {}) {
   try {
     console.log(`[${new Date().toISOString()}] 开始导出多个治疗记录到Excel文件`);
     // 处理空数据情况
@@ -38,18 +48,19 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null) {
       endDate = sortedRecords[sortedRecords.length - 1].date;
       console.log(`[${new Date().toISOString()}] 使用数据中的日期范围: ${startDate} 至 ${endDate}`);
     } else {
-      // 默认使用当前日期
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      endDate = yesterday.toISOString().split('T')[0];
-      const startDateObj = new Date(yesterday);
-      startDateObj.setDate(startDateObj.getDate() - 27);
-      startDate = startDateObj.toISOString().split('T')[0];
+      // 默认使用当前日期（斜杠 YYYY/MM/DD，含今日；早 7 点前归属前一天）
+      const pad = n => String(n).padStart(2, '0');
+      const endObj = new Date();
+      if (endObj.getHours() < 7) endObj.setDate(endObj.getDate() - 1);
+      endDate = `${endObj.getFullYear()}/${pad(endObj.getMonth() + 1)}/${pad(endObj.getDate())}`;
+      const startObj = new Date(endObj);
+      startObj.setDate(startObj.getDate() - 27);
+      startDate = `${startObj.getFullYear()}/${pad(startObj.getMonth() + 1)}/${pad(startObj.getDate())}`;
       console.log(`[${new Date().toISOString()}] 使用默认日期范围: ${startDate} 至 ${endDate}`);
     }
     
-    const fileName = `治疗记录_${startDate}_至_${endDate}.xlsx`;
+    // 文件名里日期格式：YYYYMMDD（无分隔符，最安全）
+    const fileName = buildRangeFileName(startDate, endDate);
     console.log(`[${new Date().toISOString()}] 生成Excel文件名: ${fileName}`);
 
     // 步骤2：定义Excel工作表的表头结构
@@ -70,8 +81,8 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null) {
       ['机器总超滤量'],            // 第13行：机器总超滤量
       ['日间手工注入量'],          // 第14行：日间手工注入量
       ['日间注入浓度'],            // 第15行：日间注入浓度
-      ['日间超滤量'],              // 第16行：日间超滤量
-      ['机器+手工总超滤量'],       // 第17行：总超滤量（计算值）
+      ['手工超滤量'],              // 第16行：手工超滤量
+      ['今日总超滤量'],            // 第17行：今日总超滤量（计算值）
       ['饮水量'],                   // 第18行：饮水量
       ['腹透液颜色']                // 第19行：腹透液颜色
     ];
@@ -200,10 +211,18 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null) {
     const isMobile = Capacitor.isNativePlatform();
     let savePath = '';
 
+    // 优先输出带样式的表格，失败时回退到原 SheetJS 格式
+    let styledBuffer = null;
+    try {
+      styledBuffer = await buildStyledWorkbookBuffer(rows);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] 美化样式生成失败，回退原格式: ${error.message}`);
+    }
+
     if (isMobile) {
       // 移动端：使用 Capacitor Filesystem 保存到 Documents 目录
       console.log(`[${new Date().toISOString()}] 检测到移动平台，准备保存文件到Documents目录`);
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const excelBuffer = styledBuffer || XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
       const base64Data = arrayBufferToBase64(excelBuffer);
 
       await Filesystem.writeFile({
@@ -215,6 +234,33 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null) {
 
       console.log(`[${new Date().toISOString()}] Excel文件已保存到移动端 Documents 目录: ${fileName}`);
       savePath = `${Directory.Documents}/${fileName}`;
+
+      // 保存后直接用系统默认的表格应用打开（打印流程可跳过）
+      if (options.openFile !== false) {
+        try {
+          const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Documents });
+          await FileOpener.open({
+            filePath: uri,
+            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            openWithDefault: true
+          });
+          console.log(`[${new Date().toISOString()}] 已调用外部应用打开: ${uri}`);
+        } catch (error) {
+          console.warn(`[${new Date().toISOString()}] 自动打开失败（可能未安装表格应用）: ${error.message}`);
+        }
+      }
+    } else if (styledBuffer) {
+      // 浏览器端：带样式直接下载
+      const blob = new Blob([styledBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      console.log(`[${new Date().toISOString()}] Excel文件已生成并触发下载: ${fileName}`);
     } else {
       // 浏览器端：直接下载文件
       console.log(`[${new Date().toISOString()}] 检测到浏览器平台，准备生成下载文件`);
@@ -252,6 +298,100 @@ function arrayBufferToBase64(buffer) {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
+}
+
+/**
+ * 用 ExcelJS 生成带样式的表格（行列结构与原来完全一致，只加视觉层）
+ * - 冻结首列 + 前两行，横向滚动/翻页时始终看得到「指标名」和「日期」
+ * - 打印时每页重复首列与表头行（printTitlesColumn / printTitlesRow）
+ */
+async function buildStyledWorkbookBuffer(rows) {
+  const mod = await import('exceljs');
+  const ExcelJS = mod.default || mod;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Sheet1', {
+    views: [{ state: 'frozen', xSplit: 1, ySplit: 2 }],
+    pageSetup: {
+      orientation: 'landscape',
+      blackAndWhite: true,
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      printTitlesColumn: 'A:A',
+      printTitlesRow: '1:2',
+      margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      horizontalCentered: true
+    }
+  });
+
+  const nCols = rows.reduce((m, r) => Math.max(m, r ? r.length : 0), 0);
+  const line = { style: 'thin', color: { argb: 'FFBFC7D1' } };
+  const border = { top: line, left: line, bottom: line, right: line };
+
+  // 写入数据（列 A 是指标名，B 起是每一天）
+  for (let r = 0; r < rows.length; r++) {
+    const src = rows[r] || [];
+    for (let c = 0; c < nCols; c++) {
+      const cell = ws.getCell(r + 1, c + 1);
+      const v = src[c];
+      cell.value = (v === undefined || v === null) ? '' : v;
+      cell.border = border;
+      cell.font = { size: 10, name: 'Microsoft YaHei' };
+      cell.alignment = { vertical: 'middle', horizontal: c === 0 ? 'left' : 'center', wrapText: r < 2 };
+      if (r < 2) {
+        cell.font = { size: 10, bold: true, name: 'Microsoft YaHei', color: { argb: 'FF1F3A5F' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0FE' } };
+      } else if (c === 0) {
+        cell.font = { size: 10, bold: true, name: 'Microsoft YaHei', color: { argb: 'FF374151' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } };
+      } else if (c % 2 === 0) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFBFC' } };
+      }
+    }
+  }
+
+  // 紧凑布局：列宽、行高
+  for (let c = 1; c <= nCols; c++) {
+    ws.getColumn(c).width = c === 1 ? 15 : 8.5;
+  }
+  ws.getRow(1).height = 20;
+  ws.getRow(2).height = 20;
+  for (let r = 3; r <= rows.length; r++) {
+    ws.getRow(r).height = 17;
+  }
+
+  return wb.xlsx.writeBuffer();
+}
+
+/**
+ * 把已导出的 Excel 文件转成 HTML 并调起系统打印（带预览）
+ * @param {string} fileName Documents 目录下的导出文件名
+ */
+export async function printExportedExcel(fileName) {
+  if (!fileName) throw new Error('请先导出 Excel 文件');
+
+  const { data } = await Filesystem.readFile({ path: fileName, directory: Directory.Documents });
+  const wb = XLSX.read(data, { type: 'base64' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws) throw new Error('Excel 内容为空');
+
+  const table = XLSX.utils.sheet_to_html(ws, { id: 'printTable', editable: false });
+  const title = String(fileName).replace(/\.xlsx$/i, '');
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" />
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  body { font-family: "Microsoft YaHei", Arial, sans-serif; margin: 0; color: #000; background: #fff; }
+  h1 { font-size: 14px; text-align: center; margin: 4px 0 8px; color: #000; }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  td, th { border: 1px solid #000; padding: 2px 3px; font-size: 9px; text-align: center; word-break: break-all; color: #000; background: #fff; }
+  tr:first-child td { font-weight: bold; border-bottom: 2px solid #000; }
+  tr:nth-child(2) td { font-weight: bold; }
+  td:first-child { font-weight: bold; text-align: left; border-right: 2px solid #000; }
+</style></head>
+<body><h1>${title}</h1>${table}</body></html>`;
+
+  await Printer.printHtml({ name: title, html });
 }
 
 /**
@@ -322,8 +462,8 @@ export async function importTreatmentRecordsFromExcel(fileOrData, saveRecord) {
       machineTotalFlow: '机器总超滤量',
       dayManualInjection: '日间手工注入量',
       dayInjectionConcentration: '日间注入浓度',
-      dayUltrafiltration: '日间超滤量',
-      machinePlusManualFlow: '机器+手工总超滤量',
+      dayUltrafiltration: ['手工超滤量', '日间超滤量'],
+      machinePlusManualFlow: ['今日总超滤量', '日总超滤量', '机器+手工总超滤量'],
       waterIntake: '饮水量',
       dialysateColor: '腹透液颜色'
     };
@@ -331,12 +471,12 @@ export async function importTreatmentRecordsFromExcel(fileOrData, saveRecord) {
     const indices = {};
     const usedRows = new Set();
     Object.keys(rowLabels).forEach(key => {
-      const label = rowLabels[key];
+      const labels = [].concat(rowLabels[key]);
       let found = -1;
       for (let i = 0; i < rows.length; i++) {
         if (usedRows.has(i)) continue;
         const cellLabel = String(rows[i] && rows[i][0] !== undefined ? rows[i][0] : '').trim();
-        if (cellLabel === label) { found = i; usedRows.add(i); break; }
+        if (labels.includes(cellLabel)) { found = i; usedRows.add(i); break; }
       }
       indices[key] = found;
     });
@@ -377,10 +517,26 @@ export async function importTreatmentRecordsFromExcel(fileOrData, saveRecord) {
       'dayManualInjection', 'dayUltrafiltration', 'machinePlusManualFlow', 'waterIntake'];
 
     for (let col = 1; col < dateRow.length; col++) {
-      const dateValue = String(dateRow[col] || '').trim();
-      if (!dateValue) continue;
+      const rawDate = dateRow[col];
+      if (rawDate === undefined || rawDate === null || rawDate === '') continue;
 
-      // 获取该列指定行的值
+      // 统一归一化：Excel 可能返回日期序列号数字、横杠字符串、斜杠字符串
+      let dateValue;
+      if (typeof rawDate === 'number') {
+        // Excel 日期序列号 → JavaScript Date → 斜杠 YYYY/MM/DD
+        const d = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) {
+          const p = n => String(n).padStart(2, '0');
+          dateValue = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+        } else {
+          dateValue = String(rawDate).trim();
+        }
+      } else {
+        dateValue = String(rawDate).trim()
+          .replace(/\./g, '/')      // 2026.10.23 → 2026/10/23
+          .replace(/-/g, '/');      // 2026-10-23 → 2026/10/23
+      }
+
       const getValue = (key) => {
         const idx = indices[key];
         if (idx === -1 || !rows[idx]) return '';

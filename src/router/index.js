@@ -6,6 +6,8 @@ import MePage from '../MePage.vue';
 import ProtocolPage from '../ProtocolPage.vue';
 import WaterPage from '../WaterPage.vue';
 import LegacyPage from '../App.vue';
+import SqlConsolePage from '../SqlConsolePage.vue';
+import DatabaseBackupPage from '../DatabaseBackupPage.vue';
 
 const routes = [
   {
@@ -49,6 +51,18 @@ const routes = [
     component: LegacyPage,
     name: 'Manage',
     meta: { title: '数据维护' }
+  },
+  {
+    path: '/sql',
+    component: SqlConsolePage,
+    name: 'SqlConsole',
+    meta: { title: 'SQL 控制台' }
+  },
+  {
+    path: '/dbbak',
+    component: DatabaseBackupPage,
+    name: 'DatabaseBackup',
+    meta: { title: '数据库备份' }
   },
   {
     path: '/:pathMatch(.*)*',

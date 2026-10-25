@@ -74,29 +74,11 @@
         </div>
       </div>
 
-      <div class="quick-chips">
-        <button v-for="n in waterQuickOptions" :key="n" type="button" @click="addWater(n)">+{{ n }}</button>
-        <button type="button" class="clear" @click="intake.water = ''">清零</button>
-      </div>
-
-      <div class="water-custom">
-        <button type="button" class="custom-toggle" @click="showWaterCustom = !showWaterCustom">
-          {{ showWaterCustom ? '收起自定义容量' : '＋ 自定义容量' }}
-        </button>
-        <div v-if="showWaterCustom" class="custom-panel">
-          <div class="custom-input">
-            <input type="number" inputmode="numeric" v-model="newWaterCapacity" placeholder="如 250" @focus="focusWaterCapacity">
-            <span>ml</span>
-            <button type="button" @click="addWaterCapacity">添加</button>
-          </div>
-          <div v-if="waterQuicks.length" class="custom-chips">
-            <span v-for="n in waterQuicks" :key="n" class="custom-chip">
-              {{ n }}ml
-              <i @click="removeWaterCapacity(n)">×</i>
-            </span>
-          </div>
-          <p v-else class="custom-hint">添加后上方会出现对应快捷按钮，点一下即按该容量累加</p>
-        </div>
+      <div class="water-compare">
+        <span>今日已记录 <b>{{ waterRecordedTotal }}</b> ml</span>
+        <span class="wc-dot">·</span>
+        <span>昨日 <b>{{ prevWater }}</b> ml</span>
+        <button type="button" class="wc-entry" @click="$router.push('/water?date=' + selectedDate)">明细 ›</button>
       </div>
 
       <div class="intake-row">
@@ -424,10 +406,12 @@ import {
   getMedicationsFromSQLite,
   saveMedicationsToSQLite,
   getWaterIntakeFromSQLite,
+  getWaterTotalForDate,
   setDailyWaterTotal,
   getLatestWeightBeforeFromSQLite,
   deleteDayRecordsFromSQLite,
-  getRecordDate
+  getRecordDate,
+  parseRecordDate
 } from './utils/sqliteDb.js';
 import {
   PD_BRANDS,
@@ -441,7 +425,7 @@ import { loadProtocol, buildPdList, summaryLines } from './utils/protocol.js';
 
 function toLocalISO(date) {
   const pad = n => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
 }
 
 function pad2(n) {
@@ -470,6 +454,15 @@ function nowTime() {
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function prevDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr.replace(/\//g, '-')}T00:00:00`);
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() - 1);
+  const p = pad2;
+  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
 }
 
 const WATER_QUICKS_KEY = 'waterQuicks';
@@ -511,6 +504,8 @@ export default {
       goals: { ...DEFAULT_GOALS },
       protocol: loadProtocol(),
       bpList: [],
+      waterRows: [],
+      prevWater: 0,
       intake: { water: '', other: '' },
       output: { urine: '', other: '' },
       waterQuicks: loadWaterQuicks(),
@@ -533,13 +528,20 @@ export default {
     isToday() {
       return this.selectedDate === getRecordDate();
     },
+    waterRecordedTotal() {
+      // 来自明细记录的饮水合计（WaterPage 逐条记录或 RecordPage 保存后写的 summary）
+      if (!this.waterRows || this.waterRows.length === 0) return 0;
+      return Math.round(this.waterRows.reduce((s, r) => s + (Number(r.amount) || 0), 0));
+    },
     dateLabel() {
-      const d = new Date(`${this.selectedDate}T00:00:00`);
+      const d = parseRecordDate(this.selectedDate);
+      if (!d) return '';
       const text = `${d.getMonth() + 1}月${d.getDate()}日`;
       return this.isToday ? `${text}（今天）` : text;
     },
     weekdayLabel() {
-      const d = new Date(`${this.selectedDate}T00:00:00`);
+      const d = parseRecordDate(this.selectedDate);
+      if (!d) return '';
       return `周${['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}`;
     },
     icoList() {
@@ -636,13 +638,20 @@ export default {
         };
         this.protocol = loadProtocol();
 
-        const [record, bps, pdRows, meds, waterRows, last] = await Promise.all([
+        const todayISO = getRecordDate();
+        // 仅当选定日期为今日（早 7 点后属新一天）才预填昨日饮水作参考
+        const prevWaterPromise = (this.selectedDate === todayISO)
+          ? getWaterTotalForDate(prevDate(this.selectedDate))
+          : Promise.resolve(0);
+
+        const [record, bps, pdRows, meds, waterRows, last, prevWater] = await Promise.all([
           getTreatmentRecordFromSQLite(this.selectedDate),
           getBpMeasurementsFromSQLite(this.selectedDate),
           getPdExchangesFromSQLite(this.selectedDate),
           getMedicationsFromSQLite(this.selectedDate),
           getWaterIntakeFromSQLite(this.selectedDate),
-          getLatestWeightBeforeFromSQLite(this.selectedDate)
+          getLatestWeightBeforeFromSQLite(this.selectedDate),
+          prevWaterPromise
         ]);
 
         const rec = record || {};
@@ -678,9 +687,19 @@ export default {
         this.loadedPdCount = this.pdList.length;
 
         this.weight = (String(rec.weight ?? '').trim() === '') ? '' : String(rec.weight);
-        this.intake.water = waterRows && waterRows.length > 0
-          ? String(round(waterRows.reduce((s, r) => s + num(r.amount), 0)))
-          : (String(rec.waterIntake ?? '').trim() === '' ? '' : String(rec.waterIntake));
+        this.waterRows = waterRows || [];
+        this.prevWater = Math.round(Number(prevWater) || 0);
+        // 今日：出入量中的饮水量预填「昨日饮水量」（今日实际饮水在喝水记录里单独统计）
+        // 历史日期：显示该日期自己的明细合计或已保存值
+        let waterDisplay = '';
+        if (this.selectedDate === getRecordDate()) {
+          waterDisplay = this.prevWater > 0 ? String(this.prevWater) : '';
+        } else if (waterRows && waterRows.length > 0) {
+          waterDisplay = String(round(waterRows.reduce((s, r) => s + num(r.amount), 0)));
+        } else if (String(rec.waterIntake ?? '').trim() !== '') {
+          waterDisplay = String(rec.waterIntake);
+        }
+        this.intake.water = waterDisplay;
         this.intake.other = String(rec.otherIntake ?? '').trim() === '' ? '' : String(rec.otherIntake);
         this.output.urine = String(rec.urineOutput ?? '').trim() === '' ? '' : String(rec.urineOutput);
         this.output.other = String(rec.otherOutput ?? '').trim() === '' ? '' : String(rec.otherOutput);
@@ -712,7 +731,8 @@ export default {
       }
     },
     shiftDate(offset) {
-      const d = new Date(`${this.selectedDate}T00:00:00`);
+      const d = parseRecordDate(this.selectedDate);
+      if (!d) return;
       d.setDate(d.getDate() + offset);
       const next = toLocalISO(d);
       if (next > getRecordDate()) return;
@@ -959,7 +979,7 @@ export default {
           payload.machinePlusManualFlow = String(this.sum.uf);
           payload.cycleCount = String(this.apdList.length);
           payload.dayManualInjection = String(this.icoSum.in + this.manualList.reduce((s, it) => s + num(it.volumeIn), 0));
-          payload.dayUltrafiltration = String(this.icoSum.uf + this.manualList.reduce((s, it) => s + this.ufOf(it), 0));
+          payload.dayUltrafiltration = String(this.manualList.reduce((s, it) => s + this.ufOf(it), 0));
           payload.zeroCircleFlow = String(this.icoSum.uf);
         } else if (this.loadedPdCount > 0) {
           payload.totalTreatmentVolume = '';
@@ -979,7 +999,12 @@ export default {
         await saveBpMeasurementsToSQLite(this.selectedDate, cleanBp);
         await savePdExchangesToSQLite(this.selectedDate, cleanPd);
         await saveMedicationsToSQLite(this.selectedDate, this.meds);
-        await setDailyWaterTotal(this.selectedDate, waterValue || 0);
+        // 今日字段预填的是「昨日饮水量」，不能写进今日的饮水汇总，否则会逐日累加
+        const isCarryOverPrefill =
+          this.selectedDate === getRecordDate() && waterValue === this.prevWater;
+        if (!isCarryOverPrefill) {
+          await setDailyWaterTotal(this.selectedDate, waterValue || 0);
+        }
         this.loadedPdCount = cleanPd.length;
         this.showToast('记录已更新');
       } catch (error) {
@@ -1000,7 +1025,8 @@ export default {
       }
     },
     weekdayOf(date) {
-      const d = new Date(`${date}T00:00:00`);
+      const d = parseRecordDate(date);
+      if (!d) return '';
       return ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
     }
   }
@@ -1239,6 +1265,34 @@ export default {
 .intake-row.big {
   border-top: none;
   padding-top: 2px;
+}
+
+.water-compare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -6px 0 4px;
+  padding: 0 2px;
+  font-size: 12px;
+  color: #8b919c;
+}
+.water-compare b {
+  font-weight: 700;
+  color: #2aa79b;
+  font-size: 13px;
+  margin: 0 1px;
+}
+.water-compare .wc-dot {
+  color: #c3c8d2;
+}
+.water-compare .wc-entry {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: #2aa79b;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0;
 }
 
 .intake-label span {

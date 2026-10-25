@@ -5,7 +5,8 @@
       <h2 class="card-title">喝水记录</h2>
       <div class="form-group">
         <label for="wi-date">选择日期</label>
-        <input type="date" id="wi-date" v-model="selectedDate" @change="loadRecords">
+        <input type="date" id="wi-date" v-model="selectedDateInput" @change="loadRecords">
+        <p class="date-hint">日界为早 7:00：0:00–6:59 计入前一天，7:00 及之后计入当天</p>
       </div>
     </div>
 
@@ -104,7 +105,8 @@ import {
   saveWaterIntakeToSQLite,
   deleteWaterIntakeFromSQLite,
   getWaterIntakeFromSQLite,
-  getWaterDate
+  getWaterDate,
+  parseRecordDate
 } from '../utils/sqliteDb.js';
 
 export default {
@@ -112,6 +114,8 @@ export default {
   data() {
     return {
       selectedDate: this.getTodayDate(),
+      // 日期是否跟随系统时间自动刷新（用户手动改过日期后置为 false）
+      dateAuto: true,
       form: {
         time: this.nowTime(),
         amount: '',
@@ -125,6 +129,18 @@ export default {
     };
   },
   computed: {
+    // <input type="date"> 只接受 YYYY-MM-DD，内部统一存 YYYY/MM/DD
+    selectedDateInput: {
+      get() {
+        return String(this.selectedDate || '').replace(/\//g, '-');
+      },
+      set(val) {
+        const v = String(val || '').trim();
+        this.selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.replace(/-/g, '/') : '';
+        // 用户手动选择日期后，不再自动跟随系统日期
+        this.dateAuto = false;
+      }
+    },
     totalAmount() {
       return this.records.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
     },
@@ -146,6 +162,12 @@ export default {
     }
   },
   mounted() {
+    // 如果从记录页带了 ?date= 过来，优先使用传入的日期
+    const qDate = this.$route && this.$route.query && this.$route.query.date;
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(String(qDate))) {
+      this.selectedDate = String(qDate);
+      this.dateAuto = false;
+    }
     this.loadRecords();
   },
   watch: {
@@ -165,6 +187,34 @@ export default {
       const d = new Date();
       const p = n => String(n).padStart(2, '0');
       return `${p(d.getHours())}:${p(d.getMinutes())}`;
+    },
+    /**
+     * 按「早 7:00 日界」确定一条记录归属的记录日
+     * - 7:00 及之后：归入所选日期当天
+     * - 0:00–6:59：这个时刻有两种可能（所选日期当天凌晨 / 次日凌晨），
+     *   取离当前时间更近的那一次，避免把凌晨补记错记到再前一天
+     */
+    resolveRecordDay(bucketDate, timeStr) {
+      const base = parseRecordDate(bucketDate);
+      const m = /^(\d{1,2}):(\d{2})/.exec(String(timeStr || '').trim());
+      if (!base || !m) return bucketDate;
+      const hour = Number(m[1]);
+      const minute = Number(m[2]);
+      if (hour >= 7) return bucketDate;
+      const ownMorning = new Date(base);
+      ownMorning.setHours(hour, minute, 0, 0);
+      const nextMorning = new Date(base);
+      nextMorning.setDate(nextMorning.getDate() + 1);
+      nextMorning.setHours(hour, minute, 0, 0);
+      const now = Date.now();
+      const dOwn = Math.abs(now - ownMorning.getTime());
+      const dNext = Math.abs(now - nextMorning.getTime());
+      // 更接近次日凌晨 → 属于所选日期本身的凌晨，不用前移
+      if (dNext < dOwn) return bucketDate;
+      const prev = new Date(base);
+      prev.setDate(prev.getDate() - 1);
+      const p = n => String(n).padStart(2, '0');
+      return `${prev.getFullYear()}/${p(prev.getMonth() + 1)}/${p(prev.getDate())}`;
     },
     async loadRecords() {
       this.records = [];
@@ -225,10 +275,18 @@ export default {
           this.message = { type: 'success', text: `已更新为 ${amount}ml ${this.form.type}` };
           this.cancelEdit();
         } else {
-          // 新增模式
+          // 新增模式：按「早 7:00 日界」确定归属日期
+          // 若日期仍在自动跟随状态，先刷新到当前记录日，避免页面跨 7 点后仍记到前一天
+          if (this.dateAuto) {
+            const todayBucket = this.getTodayDate();
+            if (todayBucket && todayBucket !== this.selectedDate) {
+              this.selectedDate = todayBucket;
+            }
+          }
+          const effectiveDate = this.resolveRecordDay(this.selectedDate, this.form.time);
           const timestamp = new Date().toISOString();
           const result = await saveWaterIntakeToSQLite({
-            date: this.selectedDate,
+            date: effectiveDate,
             time: this.form.time,
             amount: amount,
             type: this.form.type,
@@ -238,7 +296,17 @@ export default {
             this.message = { type: 'error', text: `保存失败：${result.message}` };
             return;
           }
-          this.message = { type: 'success', text: `已记录 ${amount}ml ${this.form.type}` };
+          if (effectiveDate !== this.selectedDate) {
+            // 早于 7:00 的记录归入前一日，同步切换视图日期，保证能看到刚记的这条
+            this.message = {
+              type: 'success',
+              text: `已记录 ${amount}ml ${this.form.type}（7:00 前计入前一日 ${effectiveDate.replace(/\//g, '-')}）`
+            };
+            this.selectedDate = effectiveDate;
+            this.dateAuto = true;
+          } else {
+            this.message = { type: 'success', text: `已记录 ${amount}ml ${this.form.type}` };
+          }
           this.form.amount = '';
           this.form.time = this.nowTime();
         }
@@ -310,6 +378,13 @@ export default {
 </script>
 
 <style scoped>
+.date-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #8a9099;
+  line-height: 1.4;
+}
+
 .water-intake-view {
   display: flex;
   flex-direction: column;

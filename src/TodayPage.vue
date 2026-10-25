@@ -31,7 +31,7 @@
         <div class="metric">
           <span class="field-label">饮水量</span>
           <div class="metric-value teal">{{ waterIntake }}<span class="unit">ml</span></div>
-          <div class="meta">上限 {{ waterLimit }} ml</div>
+          <div class="meta">上限 {{ waterLimit }} ml · 昨日 {{ prevWater }} ml</div>
         </div>
         <div class="metric">
           <span class="field-label">总入量</span>
@@ -92,8 +92,10 @@ import {
   getBpMeasurementsFromSQLite,
   getPdExchangesFromSQLite,
   getWaterIntakeFromSQLite,
+  getWaterTotalForDate,
   getDailyUfSeriesFromSQLite,
-  getRecordDate
+  getRecordDate,
+  parseRecordDate
 } from './utils/sqliteDb.js';
 import { Bar } from 'vue-chartjs';
 import {
@@ -114,7 +116,7 @@ ChartJS.register(
 
 function toLocalISO(date) {
   const pad = n => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
 }
 
 function pad2(n) {
@@ -127,6 +129,7 @@ export default {
   data() {
     return {
       today: getRecordDate(),
+      prevWater: 0,
       record: null,
       bpMeasurements: [],
       exchanges: [],
@@ -188,11 +191,10 @@ export default {
       return (w === null || w === undefined || String(w).trim() === '') ? '—' : w;
     },
     waterIntake() {
-      if (this.waterRows.length > 0) {
-        return this.waterRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-      }
+      // 今日概览的「饮水量」取昨日饮水量（记录在案则用已保存值）
       const value = this.record && this.record.waterIntake;
-      return (String(value ?? '').trim() === '') ? 0 : Math.round(Number(value));
+      if (String(value ?? '').trim() !== '') return Math.round(Number(value));
+      return this.prevWater > 0 ? this.prevWater : 0;
     },
     otherIntake() {
       return Math.round(Number(this.record && this.record.otherIntake) || 0);
@@ -365,21 +367,32 @@ export default {
       this.loading = true;
       try {
         await initSQLite();
+        // 每次加载都刷新记录日，避免页面停在跨过早 7:00 后仍按前一天统计
+        this.today = getRecordDate();
         this.waterLimit = Number(localStorage.getItem('waterLimit')) || 1000;
         const start = this.last7Days[0];
-        const [record, bps, exchanges, water, series] = await Promise.all([
+        // 昨日日期
+        const prevBase = parseRecordDate(this.today);
+        let prevISO = '';
+        if (prevBase) {
+          prevBase.setDate(prevBase.getDate() - 1);
+          prevISO = `${prevBase.getFullYear()}/${pad2(prevBase.getMonth() + 1)}/${pad2(prevBase.getDate())}`;
+        }
+        const [record, bps, exchanges, water, series, pWater] = await Promise.all([
           getTreatmentRecordFromSQLite(this.today),
           getBpMeasurementsFromSQLite(this.today),
           getPdExchangesFromSQLite(this.today),
           // 今日饮水量按「早 7 点」日界归属
           getWaterIntakeFromSQLite(getRecordDate()),
-          getDailyUfSeriesFromSQLite(start, this.today)
+          getDailyUfSeriesFromSQLite(start, this.today),
+          getWaterTotalForDate(prevISO)
         ]);
         this.record = record || null;
         this.bpMeasurements = bps || [];
         this.exchanges = exchanges || [];
         this.waterRows = water || [];
         this.ufSeries = series || [];
+        this.prevWater = Math.round(Number(pWater) || 0);
       } catch (error) {
         console.error(`[${new Date().toISOString()}] 加载今日概览失败: ${error.message}`);
       } finally {

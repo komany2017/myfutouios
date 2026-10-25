@@ -9,17 +9,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "vite --host && electron .",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "postinstall": "patch-package"
   },
   "dependencies": {
+    "@capacitor-community/file-opener": "^8.0.1",
     "@capacitor-community/sqlite": "^8.1.1",
     "@capacitor/android": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/filesystem": "^8.0.0",
+    "@capgo/capacitor-printer": "^8.1.8",
     "axios": "^1.7.9",
     "chart.js": "^4.5.1",
     "dexie": "^4.2.1",
+    "exceljs": "^4.4.0",
     "luxon": "^3.7.2",
     "vue": "^3.5.13",
     "vue-chartjs": "^5.3.3",
@@ -29,6 +33,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
+    "patch-package": "^8.0.1",
     "vite": "^6.0.5"
   }
 }

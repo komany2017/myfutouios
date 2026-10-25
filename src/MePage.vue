@@ -21,6 +21,14 @@
         <span>数据导入 / 导出</span>
         <span class="chev">›</span>
       </button>
+      <button type="button" class="row" @click="$router.push('/sql')">
+        <span>SQL 控制台</span>
+        <span class="chev">›</span>
+      </button>
+      <button type="button" class="row" @click="$router.push('/dbbak')">
+        <span>数据库备份 / 恢复</span>
+        <span class="chev">›</span>
+      </button>
       <button type="button" class="row" @click="$router.push('/water')">
         <span>喝水记录管理</span>
         <span class="chev">›</span>

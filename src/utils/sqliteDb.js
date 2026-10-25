@@ -9,10 +9,37 @@ import { getAllTreatmentRecords } from './database.js';
  */
 
 const DB_NAME = 'futou_record_db';
+/** Android 上插件实际生成的数据库文件名 */
+export const DB_FILE_NAME = `${DB_NAME}SQLite.db`;
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 
 let db = null;
 let initPromise = null;
+
+/**
+ * 关闭数据库连接（备份/覆盖数据库文件前必须调用）
+ */
+export async function closeSQLite() {
+    try {
+        if (db) await db.close();
+    } catch (error) {
+        console.warn(`[${new Date().toISOString()}] 关闭数据库失败: ${error.message}`);
+    }
+    db = null;
+    initPromise = null;
+}
+
+/**
+ * 把 WAL 里的数据合并回主库文件，保证备份文件完整
+ */
+export async function checkpointSQLite() {
+    try {
+        const conn = await initSQLite();
+        if (conn) await conn.execute('PRAGMA wal_checkpoint(TRUNCATE);');
+    } catch (error) {
+        console.warn(`[${new Date().toISOString()}] 检查点执行失败: ${error.message}`);
+    }
+}
 
 // 建表语句
 const SCHEMA = `
@@ -130,6 +157,17 @@ function toText(value) {
     return String(value);
 }
 
+/** 日期格式归一化：非法值直接返回 null，横杠/斜杠 → 斜杠 YYYY/MM/DD */
+function normalizeDate(d) {
+    if (!d) return null;
+    const s = String(d);
+    // 拦截 NaN、undefined、null
+    if (s === 'NaN' || s === 'undefined' || s === 'null') return null;
+    // 必须匹配 YYYY/MM/DD 或 YYYY-MM-DD 格式
+    if (!/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(s)) return null;
+    return s.replace(/-/g, '/');
+}
+
 function toNumberOrNull(value) {
     if (value === undefined || value === null || String(value).trim() === '') return null;
     const n = Number(value);
@@ -161,6 +199,11 @@ export async function initSQLite() {
             await db.execute(SCHEMA);
             await ensureTreatmentColumns();
             await ensureMedicationColumns();
+            await ensureDateFormatNormalized();
+            await ensureTreatmentDefaults();
+            await cleanupCarriedOverWaterOnce();
+            await fixDayUltrafiltrationOnce();
+            await syncTodayWaterFromPreviousDay();
             console.log(`[${new Date().toISOString()}] SQLite 数据库初始化完成: ${DB_NAME}`);
 
             // 首次初始化时，将 IndexedDB 中已有的治疗记录迁移到 SQLite
@@ -176,6 +219,111 @@ export async function initSQLite() {
     })();
 
     return initPromise;
+}
+
+/**
+ * 一次性修复：旧版本会把「昨日饮水量」预填为今日起点并写入汇总行，
+ * 导致新的一天继承前一日的总量。仅在当天满足以下条件时清理一次：
+ *   当天只有一条「汇总」记录，且数值恰好等于前一记录日的总量。
+ */
+async function cleanupCarriedOverWaterOnce() {
+    try {
+        await db.run(`CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)`);
+        const done = await db.query(
+            `SELECT value FROM app_meta WHERE key = ?`, ['water_carryover_fix_v1']
+        );
+        if ((done.values || []).length > 0) return;
+
+        const today = getRecordDate();
+        const base = parseRecordDate(today);
+        let prevDay = '';
+        if (base) {
+            base.setDate(base.getDate() - 1);
+            const p = n => String(n).padStart(2, '0');
+            prevDay = `${base.getFullYear()}/${p(base.getMonth() + 1)}/${p(base.getDate())}`;
+        }
+
+        const rows = await db.query(
+            `SELECT time, amount FROM water_intake_records WHERE date = ?`, [today]
+        );
+        const list = rows.values || [];
+        const prevTotal = prevDay ? await getWaterTotalForDate(prevDay) : 0;
+        const carriedOver =
+            list.length === 1 &&
+            list[0].time === '汇总' &&
+            prevTotal > 0 &&
+            Math.abs(Number(list[0].amount) - prevTotal) < 0.001;
+
+        if (carriedOver) {
+            await db.run(`DELETE FROM water_intake_records WHERE date = ?`, [today]);
+            await db.run(`UPDATE treatment_records SET waterIntake = '' WHERE date = ?`, [today]);
+            console.log(`[${new Date().toISOString()}] 已清理 ${today} 继承自 ${prevDay} 的饮水量 ${prevTotal}`);
+        }
+        await db.run(
+            `INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)`,
+            ['water_carryover_fix_v1', new Date().toISOString()]
+        );
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] 清理继承饮水量失败: ${error.message}`);
+    }
+}
+
+/**
+ * 一次性修正：日间超滤量曾错误地把「0周期（艾考糊精）」超滤也加了进去，
+ * 表现为 dayUltrafiltration 与 zeroCircleFlow 完全相等（此时手工换液净超滤为 0）。
+ * 修正后日间超滤量只统计手工换液的净超滤。
+ */
+async function fixDayUltrafiltrationOnce() {
+    try {
+        const flag = await db.query(`SELECT value FROM app_meta WHERE key = 'day_uf_fix_v1'`);
+        if ((flag.values || []).length > 0) return;
+
+        const res = await db.run(
+            `UPDATE treatment_records SET dayUltrafiltration = '0'
+             WHERE dayUltrafiltration <> '' AND zeroCircleFlow <> ''
+               AND dayUltrafiltration = zeroCircleFlow`
+        );
+        await db.run(
+            `INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)`,
+            ['day_uf_fix_v1', new Date().toISOString()]
+        );
+        console.log(`[${new Date().toISOString()}] 日间超滤量修正完成: ${JSON.stringify(res && res.changes)}`);
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] 日间超滤量修正失败: ${error.message}`);
+    }
+}
+
+/**
+ * 今日记录的「饮水量」= 昨日饮水总量（过 7:00 后的新一天自动补上）
+ * 只写 treatment_records 的字段，不动 water_intake_records，避免逐日累加
+ */
+async function syncTodayWaterFromPreviousDay() {
+    try {
+        const today = getRecordDate();
+        const base = parseRecordDate(today);
+        if (!base) return;
+        base.setDate(base.getDate() - 1);
+        const p = n => String(n).padStart(2, '0');
+        const prevDay = `${base.getFullYear()}/${p(base.getMonth() + 1)}/${p(base.getDate())}`;
+
+        const prevTotal = await getWaterTotalForDate(prevDay);
+        if (!prevTotal) return;
+
+        const rec = await db.query(
+            `SELECT waterIntake FROM treatment_records WHERE date = ?`, [today]
+        );
+        const rows = rec.values || [];
+        if (rows.length === 0) return;
+        if (String(rows[0].waterIntake ?? '').trim() !== '') return;
+
+        await db.run(
+            `UPDATE treatment_records SET waterIntake = ? WHERE date = ?`,
+            [String(prevTotal), today]
+        );
+        console.log(`[${new Date().toISOString()}] 今日饮水量已记为昨日总量: ${today} ← ${prevDay} ${prevTotal}`);
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] 同步昨日饮水量失败: ${error.message}`);
+    }
 }
 
 /**
@@ -215,6 +363,108 @@ async function ensureMedicationColumns() {
 }
 
 /**
+ * 日期格式归一化 migration：
+ * 1) 合并 treatment_records 里同日斜杠/横杠双记录（保留字段更全的）
+ * 2) 所有表横杠日期（2026-10-23）统一改为斜杠（2026/10/23），与旧数据对齐
+ * 幂等：每次 init 都跑，无副作用
+ */
+async function ensureDateFormatNormalized() {
+    try {
+        // Step 1: 找同日斜杠/横杠双记录，保留字段更全的
+        const dupResult = await db.query(`
+            SELECT DISTINCT REPLACE(date, '/', '-') AS norm
+            FROM treatment_records
+            GROUP BY norm
+            HAVING COUNT(*) > 1
+        `);
+        const norms = (dupResult.values || []).map(r => r.norm);
+        for (const norm of norms) {
+            const slash = norm.replace(/-/g, '/');
+            const dash = norm;
+            const rows = await db.query(
+                'SELECT * FROM treatment_records WHERE date = ? OR date = ?',
+                [slash, dash]
+            );
+            const r = (rows.values || []);
+            if (r.length < 2) continue;
+
+            const slashRow = r.find(x => x.date === slash);
+            const dashRow = r.find(x => x.date === dash);
+            if (!slashRow || !dashRow) continue;
+
+            const fullness = (row) =>
+                Object.values(row).filter(v => v !== null && String(v).trim() !== '').length;
+            const keepSlash = fullness(slashRow) >= fullness(dashRow);
+            const toDelete = keepSlash ? dash : slash;
+            await db.run('DELETE FROM treatment_records WHERE date = ?', [toDelete]);
+            console.log(`[${new Date().toISOString()}] 合并重复日期 ${norm}（保留${keepSlash ? '斜杠' : '横杠'}记录）`);
+        }
+
+        // Step 2: 所有表 横杠→斜杠（与 getRecordDate() 返回 YYYY/MM/DD 对齐）
+        // 直接用批量 UPDATE ... SET date = REPLACE(date, '-', '/')，稳定可靠
+        const dateTables = ['treatment_records', 'water_intake_records', 'pd_exchanges', 'bp_measurements', 'medications', 'apd_cycles'];
+        let totalFixed = 0;
+        for (const tbl of dateTables) {
+            try {
+                const before = await db.query(`SELECT COUNT(*) as c FROM ${tbl} WHERE date LIKE '%-%' AND date NOT LIKE '%/%'`);
+                const beforeCnt = (before.values || [{ c: 0 }])[0].c || 0;
+                if (beforeCnt > 0) {
+                    const upd = await db.run(
+                        `UPDATE ${tbl} SET date = REPLACE(date, '-', '/') WHERE date LIKE '%-%' AND date NOT LIKE '%/%'`
+                    );
+                    const changed = upd.changes || 0;
+                    totalFixed += changed;
+                    console.log(`[${new Date().toISOString()}] ${tbl}: ${changed} 条横杠→斜杠`);
+                }
+            } catch (e) {
+                console.error(`[${new Date().toISOString()}] ${tbl} 日期修正失败: ${e.message}`);
+            }
+        }
+        if (totalFixed > 0) {
+            console.log(`[${new Date().toISOString()}] 日期格式归一化完成，共修正 ${totalFixed} 条`);
+        }
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] 日期格式归一化失败: ${error.message}`);
+    }
+}
+
+/**
+ * 治疗记录缺失字段补默认值 migration
+ * 对历史空值记录一次性补全：heatingBag/supplementBag/treatmentMethod/
+ * totalTreatmentVolume/treatmentTime/singleInjectionVolume/lastBagInjectionVolume
+ */
+const TREATMENT_DEFAULTS = {
+    heatingBag: '2.5',
+    supplementBag: '2.5',
+    treatmentMethod: 'IPD',
+    totalTreatmentVolume: '10000',
+    treatmentTime: '10',
+    singleInjectionVolume: '2000',
+    lastBagInjectionVolume: '0'
+};
+
+async function ensureTreatmentDefaults() {
+    try {
+        let totalFixed = 0;
+        for (const [col, def] of Object.entries(TREATMENT_DEFAULTS)) {
+            const upd = await db.run(
+                `UPDATE treatment_records SET ${col} = ? WHERE ${col} IS NULL OR TRIM(${col}) = ''`,
+                [def]
+            );
+            if (upd.changes && upd.changes.changes > 0) {
+                console.log(`[${new Date().toISOString()}] treatment_records.${col}: 补全 ${upd.changes.changes} 条默认值=${def}`);
+                totalFixed += upd.changes.changes;
+            }
+        }
+        if (totalFixed > 0) {
+            console.log(`[${new Date().toISOString()}] 历史记录默认值补全完成，共 ${totalFixed} 处`);
+        }
+    } catch (e) {
+        console.error(`[${new Date().toISOString()}] 默认值补全失败: ${e.message}`);
+    }
+}
+
+/**
  * 将 IndexedDB 中已有的治疗记录迁移到 SQLite（INSERT OR IGNORE，不覆盖已有数据）
  */
 async function migrateFromIndexedDB() {
@@ -224,6 +474,8 @@ async function migrateFromIndexedDB() {
 
         let migrated = 0;
         for (const r of records) {
+            // 日期也归一化：IndexedDB 老数据统一成斜杠 YYYY/MM/DD（与 getRecordDate() 对齐）
+            const dateVal = (r.date ?? '').replace(/-/g, '/');
             const result = await db.run(
                 `INSERT OR IGNORE INTO treatment_records
          (date, weekday, bloodPressure, heartRate, weight, heatingBag, supplementBag,
@@ -233,7 +485,7 @@ async function migrateFromIndexedDB() {
           machinePlusManualFlow, waterIntake, dialysateColor, createdAt, updatedAt)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                 [
-                    r.date ?? '', r.weekday ?? '', r.bloodPressure ?? '', String(r.heartRate ?? ''),
+                    dateVal, r.weekday ?? '', r.bloodPressure ?? '', String(r.heartRate ?? ''),
                     String(r.weight ?? ''), String(r.heatingBag ?? ''), String(r.supplementBag ?? ''),
                     r.treatmentMethod ?? '', String(r.totalTreatmentVolume ?? ''), String(r.treatmentTime ?? ''),
                     String(r.singleInjectionVolume ?? ''), String(r.lastBagInjectionVolume ?? ''),
@@ -257,6 +509,7 @@ async function migrateFromIndexedDB() {
  */
 export async function saveTreatmentRecordToSQLite(data) {
     const conn = await initSQLite();
+    if (data && data.date) data.date = normalizeDate(data.date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
     if (!data || !data.date) return { success: false, message: '缺少日期' };
 
@@ -272,9 +525,17 @@ export async function saveTreatmentRecordToSQLite(data) {
             const value = provided ? data[col] : (current ? current[col] : undefined);
             merged[col] = TEXT_COLUMNS.has(col) ? toText(value) : toNumberOrNull(value);
         });
-        merged.date = data.date;
+        merged.date = (data.date ?? '').replace(/-/g, '/');
         merged.createdAt = (current && current.createdAt) ? current.createdAt : now;
         merged.updatedAt = now;
+
+        // 空字段自动填默认值
+        for (const [col, def] of Object.entries(TREATMENT_DEFAULTS)) {
+            const v = merged[col];
+            if (v === undefined || v === null || String(v).trim() === '') {
+                merged[col] = def;
+            }
+        }
 
         const placeholders = RECORD_COLUMNS.map(() => '?').join(',');
         await conn.run(
@@ -294,6 +555,7 @@ export async function saveTreatmentRecordToSQLite(data) {
  */
 export async function getTreatmentRecordFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return null;
 
     try {
@@ -327,8 +589,29 @@ export async function getAllTreatmentRecordsFromSQLite() {
 }
 
 /**
+ * 按日期范围查询治疗记录（含起止，用于导出最近 N 天数据）
+ */
+export async function getTreatmentRecordsByDateRangeSQLite(startDate, endDate) {
+    const conn = await initSQLite();
+    startDate = normalizeDate(startDate);
+    endDate = normalizeDate(endDate);
+    if (!conn) return [];
+
+    try {
+        const result = await conn.query(
+            `SELECT * FROM treatment_records WHERE date >= ? AND date <= ? ORDER BY date ASC`,
+            [startDate, endDate]
+        );
+        return result.values || [];
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] SQLite 范围查询治疗记录失败: ${error.message}`);
+        return [];
+    }
+}
+
+/**
  * 所有记录按「早 7 点」划分日界：00:00-06:59 归属前一天
- * 返回 YYYY-MM-DD
+ * 返回 YYYY/MM/DD（斜杠，与旧数据保持一致）
  */
 export function getRecordDate(date = new Date()) {
     const d = new Date(date);
@@ -336,11 +619,23 @@ export function getRecordDate(date = new Date()) {
         d.setDate(d.getDate() - 1);
     }
     const p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
 }
 
 /** 兼容别名 */
 export const getWaterDate = getRecordDate;
+
+/**
+ * 把 YYYY/MM/DD 或 YYYY-MM-DD 安全解析为本地 0 点 Date
+ * 注意：'2026/10/23T00:00:00' 在 V8/WebView 中是 Invalid Date，必须先转横杠
+ * @returns {Date|null} 非法输入返回 null
+ */
+export function parseRecordDate(dateStr) {
+    const s = String(dateStr || '').trim();
+    if (!/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}$/.test(s)) return null;
+    const d = new Date(s.replace(/\//g, '-') + 'T00:00:00');
+    return isNaN(d.getTime()) ? null : d;
+}
 
 /**
  * 按日期汇总喝水记录（饮水量趋势用）
@@ -365,6 +660,7 @@ export async function getWaterTotalsByDateFromSQLite() {
  */
 export async function saveWaterIntakeToSQLite(record) {
     const conn = await initSQLite();
+    if (record && record.date) record.date = normalizeDate(record.date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -415,6 +711,7 @@ export async function deleteWaterIntakeFromSQLite(timestamp) {
  */
 export async function getWaterIntakeFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return [];
 
     try {
@@ -435,6 +732,7 @@ export async function getWaterIntakeFromSQLite(date) {
  */
 export async function getWaterTotalForDate(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return 0;
 
     try {
@@ -455,6 +753,7 @@ export async function getWaterTotalForDate(date) {
  */
 export async function setDailyWaterTotal(date, total) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -482,6 +781,7 @@ export async function setDailyWaterTotal(date, total) {
  */
 export async function getBpMeasurementsFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return [];
 
     try {
@@ -502,6 +802,7 @@ export async function getBpMeasurementsFromSQLite(date) {
  */
 export async function saveBpMeasurementsToSQLite(date, measurements) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -533,6 +834,7 @@ export async function saveBpMeasurementsToSQLite(date, measurements) {
  */
 export async function getMedicationsFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return [];
 
     try {
@@ -552,6 +854,7 @@ export async function getMedicationsFromSQLite(date) {
  */
 export async function saveMedicationsToSQLite(date, meds) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -578,6 +881,7 @@ export async function saveMedicationsToSQLite(date, meds) {
  */
 export async function getPdExchangesFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return [];
 
     try {
@@ -599,6 +903,7 @@ export async function getPdExchangesFromSQLite(date) {
  */
 export async function savePdExchangesToSQLite(date, exchanges) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -638,6 +943,7 @@ export async function savePdExchangesToSQLite(date, exchanges) {
  */
 export async function deleteDayRecordsFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return { success: false, message: '非原生平台或初始化失败' };
 
     try {
@@ -657,6 +963,7 @@ export async function deleteDayRecordsFromSQLite(date) {
  */
 export async function getLatestWeightBeforeFromSQLite(date) {
     const conn = await initSQLite();
+    date = normalizeDate(date);
     if (!conn) return null;
 
     try {
@@ -680,6 +987,8 @@ export async function getLatestWeightBeforeFromSQLite(date) {
  */
 export async function getDailyUfSeriesFromSQLite(startDate, endDate) {
     const conn = await initSQLite();
+    startDate = normalizeDate(startDate);
+    endDate = normalizeDate(endDate);
     if (!conn) return [];
 
     try {

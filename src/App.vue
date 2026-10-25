@@ -14,7 +14,7 @@
       <div class="card date-card">
         <div class="form-group">
           <label for="date">记录日期</label>
-          <input type="date" id="date" v-model="selectedDate" required>
+          <input type="date" id="date" v-model="selectedDateInput" required>
         </div>
       </div>
 
@@ -24,6 +24,10 @@
           <button type="button" class="export-button" @click="export28DaysData" :disabled="isExporting || isImporting">
             <span class="button-icon">📊</span>
             <span class="button-text">{{ isExporting ? '导出中...' : '导出最近28天数据' }}</span>
+          </button>
+          <button type="button" class="print-button" @click="printExport" :disabled="isExporting || isImporting || isPrinting">
+            <span class="button-icon">🖨️</span>
+            <span class="button-text">{{ isPrinting ? '准备打印...' : '打印 / 预览' }}</span>
           </button>
           <button type="button" class="import-button" @click="triggerFileInput" :disabled="isExporting || isImporting">
             <span class="button-icon">📥</span>
@@ -79,7 +83,7 @@
         
         <div class="form-row">
           <div class="form-group">
-            <label for="dayUltrafiltration">日间超滤量</label>
+            <label for="dayUltrafiltration">手工超滤量</label>
             <input type="number" id="dayUltrafiltration" v-model.number="formData.dayUltrafiltration" placeholder="选填">
           </div>
           
@@ -149,9 +153,9 @@
 
 <script>
 import { fillExcelData, getWaterIntakeByDate } from './utils/fillExcelData.js';
-import { saveTreatmentRecord, getTreatmentRecordsByDateRange } from './utils/database.js';
-import { initSQLite, saveTreatmentRecordToSQLite } from './utils/sqliteDb.js';
-import { importTreatmentRecordsFromExcel, exportMultipleRecordsToExcel } from './utils/exportExcel.js';
+import { saveTreatmentRecord } from './utils/database.js';
+import { initSQLite, saveTreatmentRecordToSQLite, getTreatmentRecordsByDateRangeSQLite, getRecordDate, parseRecordDate } from './utils/sqliteDb.js';
+import { importTreatmentRecordsFromExcel, exportMultipleRecordsToExcel, printExportedExcel, buildRangeFileName } from './utils/exportExcel.js';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import WaterIntakeView from './components/WaterIntakeView.vue';
@@ -176,6 +180,7 @@ export default {
       },
       isSubmitting: false,
       isExporting: false,
+      isPrinting: false,
       isImporting: false,
       successMessage: '',
       saveFileName: '',
@@ -184,6 +189,18 @@ export default {
       successTimer: null,
       dailyWaterIntake: 0
     };
+  },
+  computed: {
+    // <input type="date"> 只接受 YYYY-MM-DD，内部统一存 YYYY/MM/DD
+    selectedDateInput: {
+      get() {
+        return String(this.selectedDate || '').replace(/\//g, '-');
+      },
+      set(val) {
+        const v = String(val || '').trim();
+        this.selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.replace(/-/g, '/') : '';
+      }
+    }
   },
   watch: {
     successMessage(val) {
@@ -229,7 +246,8 @@ export default {
 
     getTodayDate() {
       const today = new Date();
-      return today.toISOString().split('T')[0];
+      const pad = n => String(n).padStart(2, '0');
+      return `${today.getFullYear()}/${pad(today.getMonth() + 1)}/${pad(today.getDate())}`;
     },
     
     async submitForm() {
@@ -315,49 +333,114 @@ export default {
     },
     
     async export28DaysData() {
+      return this.doExport28Days({ openFile: true });
+    },
+
+    /** 当前 28 天窗口（今日含今天，共 28 天） */
+    currentExportRange() {
+      const endDate = getRecordDate();
+      const endD = parseRecordDate(endDate);
+      if (!endD) return null;
+      const startD = new Date(endD);
+      startD.setDate(startD.getDate() - 27);
+      const p = n => String(n).padStart(2, '0');
+      const startDate = `${startD.getFullYear()}/${p(startD.getMonth() + 1)}/${p(startD.getDate())}`;
+      return { startDate, endDate };
+    },
+
+    async doExport28Days({ openFile = true } = {}) {
       try {
         console.log(`[${new Date().toISOString()}] 用户开始导出最近28天的治疗记录`);
         this.isExporting = true;
         this.error = '';
         this.successMessage = '';
-        
-        // 计算日期范围：今天到28天前（含今天）
-        const today = new Date();
-        
-        const endDate = today.toISOString().split('T')[0];
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - 27); // 28天前（含今天共28天）
-        const formattedStartDate = startDate.toISOString().split('T')[0];
-        
+
+        await initSQLite();
+
+        // 计算日期范围：今天(按早7点日界)到28天前（共28天，含今天）
+        const range = this.currentExportRange();
+        if (!range) throw new Error(`日期解析失败`);
+        const { startDate: formattedStartDate, endDate } = range;
+
         console.log(`[${new Date().toISOString()}] 导出日期范围: ${formattedStartDate} 到 ${endDate}`);
-        
-        // 从数据库获取数据
-        const recordsResult = await getTreatmentRecordsByDateRange(formattedStartDate, endDate);
-        const records = recordsResult.success ? recordsResult.data : [];
 
-        console.log(`[${new Date().toISOString()}] 从数据库获取到 ${records.length} 条记录`);
+        // 从 SQLite 获取数据
+        const records = await getTreatmentRecordsByDateRangeSQLite(formattedStartDate, endDate);
+        console.log(`[${new Date().toISOString()}] 从 SQLite 获取到 ${records.length} 条治疗记录`);
 
-        // 导出到Excel，传递日期范围以便生成正确的文件名
+        // 导出到 Excel
         console.log(`[${new Date().toISOString()}] 开始生成Excel文件`);
         const result = await exportMultipleRecordsToExcel(records, {
           startDate: formattedStartDate,
-          endDate: endDate
-        });
-        
-        // 显示成功消息
+          endDate
+        }, { openFile });
+
         this.successMessage = result.message;
         this.saveFileName = result.fileName || '';
         this.savePath = result.savePath || '';
-        
+
         console.log(`[${new Date().toISOString()}] 导出最近28天数据成功，共 ${records.length} 条记录`);
-        
+        return result;
+
       } catch (error) {
         console.error(`[${new Date().toISOString()}] 导出数据失败，错误: ${error.message}`);
         console.error(error.stack);
         this.error = '导出失败，请重试';
+        return null;
       } finally {
         this.isExporting = false;
         console.log(`[${new Date().toISOString()}] 导出操作完成`);
+      }
+    },
+
+    /** 判断某个文件是否已存在于 Documents 目录 */
+    async exportFileExists(fileName) {
+      if (!fileName) return false;
+      try {
+        const res = await Filesystem.readdir({ path: '', directory: Directory.Documents });
+        return (res.files || []).some(f => f.name === fileName);
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] 读取 Documents 目录失败: ${error.message}`);
+        return false;
+      }
+    },
+
+    /**
+     * 打印/预览：已有当天 28 天窗口的导出文件就直接打印，
+     * 没有则先自动导出（不打开表格应用）再打印
+     */
+    async printExport() {
+      this.error = '';
+      try {
+        this.isPrinting = true;
+
+        let fileName = '';
+        // 以当前 28 天窗口计算出的文件名判断，避免复用到旧日期的文件
+        const range = this.currentExportRange();
+        const expectedName = range ? buildRangeFileName(range.startDate, range.endDate) : '';
+        if (await this.exportFileExists(expectedName)) {
+          fileName = expectedName;
+          this.saveFileName = expectedName;
+          console.log(`[${new Date().toISOString()}] 复用已存在的导出文件: ${fileName}`);
+        }
+
+        if (!fileName) {
+          console.log(`[${new Date().toISOString()}] 未找到导出文件，先自动导出`);
+          const result = await this.doExport28Days({ openFile: false });
+          if (!result || !result.fileName) {
+            this.error = '打印失败：导出未完成';
+            return;
+          }
+          fileName = result.fileName;
+        }
+
+        await printExportedExcel(fileName);
+        console.log(`[${new Date().toISOString()}] 已调起打印预览: ${fileName}`);
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] 打印失败: ${error.message}`);
+        this.error = '打印失败，请重试';
+      } finally {
+        this.isPrinting = false;
       }
     },
 
@@ -370,13 +453,15 @@ export default {
     },
 
     /**
-     * 历史文件排序：区间导出文件（文件名含"_"）在前，月度文件（6位数字）在后
-     * 使相同日期以月度文件为最终值（月度文件是应用持续写入的最新数据）
+     * 历史文件排序：区间导出文件（文件名含"_"）在前，单日期文件在后
+     * 单日期文件（月度 6 位数字 或 横杠 YYYY-MM-DD 单日命名）是应用持续写入的最新数据，
+     * 排在最后使相同日期以它为最终值
      */
     sortHistoryFiles(names) {
+      const SINGLE_DATE_RE = /^治疗记录(\d{6}|\d{4}-\d{2}-\d{2})\.xlsx$/;
       return names.slice().sort((a, b) => {
-        const am = /^治疗记录\d{6}\.xlsx$/.test(a) ? 1 : 0;
-        const bm = /^治疗记录\d{6}\.xlsx$/.test(b) ? 1 : 0;
+        const am = SINGLE_DATE_RE.test(a) ? 1 : 0;
+        const bm = SINGLE_DATE_RE.test(b) ? 1 : 0;
         return am - bm || a.localeCompare(b);
       });
     },
@@ -623,7 +708,8 @@ export default {
 }
 
 .import-button,
-.import-all-button {
+.import-all-button,
+.print-button {
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
   padding: 16px 20px;
@@ -641,18 +727,21 @@ export default {
   font-family: inherit;
 }
 
-.import-button:hover:not(:disabled) {
+.import-button:hover:not(:disabled),
+.print-button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
 }
 
-.import-button:active:not(:disabled) {
+.import-button:active:not(:disabled),
+.print-button:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
 }
 
 .import-button:disabled,
-.import-all-button:disabled {
+.import-all-button:disabled,
+.print-button:disabled {
   background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%);
   cursor: not-allowed;
   transform: none;
@@ -1053,7 +1142,8 @@ input[type="date"] {
 
   .export-button,
   .import-button,
-  .import-all-button {
+  .import-all-button,
+  .print-button {
     padding: 18px 20px;
     font-size: 17px;
   }

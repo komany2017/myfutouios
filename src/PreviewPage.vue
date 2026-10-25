@@ -106,7 +106,7 @@
     <section class="card">
       <div class="card-head">
         <h2>选定日期记录</h2>
-        <input type="date" id="previewDate" v-model="selectedDate" class="date-input">
+        <input type="date" id="previewDate" v-model="selectedDateInput" class="date-input">
       </div>
 
       <div v-if="dailyLoading" class="state-tip">加载中...</div>
@@ -172,7 +172,8 @@ import {
   getWaterIntakeFromSQLite,
   getAllTreatmentRecordsFromSQLite,
   getWaterTotalsByDateFromSQLite,
-  getRecordDate
+  getRecordDate,
+  parseRecordDate
 } from './utils/sqliteDb.js';
 import { Line, Bar } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement, BarController, Filler } from 'chart.js';
@@ -190,10 +191,10 @@ const METRICS = [
   { key: 'machineTotalFlow', label: '机器总超滤量', unit: 'ml', color: '#7a5af8' }
 ];
 
-// 本地日期转 YYYY-MM-DD，避免时区偏移
+// 本地日期转 YYYY/MM/DD（斜杠，与 SQLite 存储统一）
 function toLocalISO(date) {
   const pad = n => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`;
 }
 
 function round(value, digits = 0) {
@@ -233,15 +234,26 @@ export default {
     };
   },
   computed: {
+    // <input type="date"> 只接受 YYYY-MM-DD，内部统一存 YYYY/MM/DD
+    selectedDateInput: {
+      get() {
+        return String(this.selectedDate || '').replace(/\//g, '-');
+      },
+      set(val) {
+        const v = String(val || '').trim();
+        this.selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.replace(/-/g, '/') : '';
+      }
+    },
     currentMetric() {
       return METRICS.find(m => m.key === this.metric) || METRICS[0];
     },
     rangeStartDate() {
       const today = getRecordDate();
-      const d = new Date(`${today}T00:00:00`);
+      const d = parseRecordDate(today);
+      if (!d) return today;
       d.setDate(d.getDate() - (this.rangeDays - 1));
       const pad = n => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
     },
     todayISO() {
       return getRecordDate();
@@ -404,8 +416,10 @@ export default {
     coverageDays() {
       const recorded = new Set(this.allRecords.map(r => r.date));
       const days = [];
+      // 以「早 7 点日界」的今日为锚点，往前 27 天，共 28 天且含今日
+      const anchor = parseRecordDate(getRecordDate()) || new Date();
       for (let i = 27; i >= 0; i--) {
-        const d = new Date();
+        const d = new Date(anchor);
         d.setDate(d.getDate() - i);
         const iso = toLocalISO(d);
         days.push({ date: iso, day: d.getDate(), hasRecord: recorded.has(iso) });
@@ -466,8 +480,8 @@ export default {
           items: [
             item('0周期超滤量', r.zeroCircleFlow),
             item('机器总超滤量', r.machineTotalFlow),
-            item('日间超滤量', r.dayUltrafiltration),
-            item('机器+手工总超滤量', r.machinePlusManualFlow)
+            item('手工超滤量', r.dayUltrafiltration),
+            item('今日总超滤量', r.machinePlusManualFlow)
           ]
         },
         {
@@ -836,8 +850,10 @@ export default {
 /* 28天记录日历 */
 .coverage-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .coverage-day {
@@ -846,13 +862,15 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 40px;
+  height: 36px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   background-color: #f4f5f7;
   color: #b0b4ba;
   font-size: 13px;
   cursor: pointer;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .coverage-day.recorded {

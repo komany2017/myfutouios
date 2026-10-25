@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { saveTreatmentRecord, getTreatmentRecordByDate } from './database';
+import { parseRecordDate } from './sqliteDb';
 
 
 
@@ -43,8 +44,11 @@ export async function fillExcelData(data) {
       ? ''
       : Number(data.waterIntake);
     // 步骤1：生成Excel文件名
-    // 从日期中提取年月部分，例如：2023-12-15 -> 202312
-    const yearMonth = data.date.substring(0, 7).replace('-', ''); 
+    // 从日期中提取年月部分，兼容 2026/12/15 与 2026-12-15 -> 202612
+    const yearMonth = String(data.date || '').substring(0, 7).replace(/[\/\-]/g, '');
+    if (!/^\d{6}$/.test(yearMonth)) {
+      throw new Error(`日期格式非法，无法生成文件名: ${data.date}`);
+    }
     const fileName = `治疗记录${yearMonth}.xlsx`;
 
     // 步骤2：定义Excel工作表的表头结构
@@ -66,8 +70,8 @@ export async function fillExcelData(data) {
       ['机器总超滤量'],            // 第13行：机器总超滤量
       ['日间手工注入量'],          // 第14行：日间手工注入量
       ['日间注入浓度'],            // 第15行：日间注入浓度
-      ['日间超滤量'],              // 第16行：日间超滤量
-      ['机器+手工总超滤量'],       // 第17行：总超滤量（计算值）
+      ['手工超滤量'],              // 第16行：手工超滤量
+      ['今日总超滤量'],            // 第17行：今日总超滤量（计算值）
       ['饮水量'],                   // 第18行：饮水量
       ['腹透液颜色']                // 第19行：腹透液颜色
     ];
@@ -75,7 +79,8 @@ export async function fillExcelData(data) {
     // 步骤3：计算当前日期对应的星期
     const targetDate = data.date;
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-    let weekday = weekdays[new Date(targetDate).getDay()];
+    const targetD = parseRecordDate(targetDate);
+    let weekday = targetD ? weekdays[targetD.getDay()] : '';
 
     // 步骤3.1：检查数据库中是否存在相同日期的数据
     // 如果存在，使用数据库数据优先（确保数据一致性）
@@ -158,7 +163,7 @@ export async function fillExcelData(data) {
     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
     // 步骤9：从第0列（表头列）动态检测各数据行的实际索引
-    // 兼容历史文件结构：旧文件可能没有"机器+手工总超滤量"行，饮水量/腹透液颜色位于不同行
+    // 兼容历史文件结构：旧文件可能没有"日总超滤量"行（旧名"机器+手工总超滤量"），饮水量/腹透液颜色位于不同行
     const rowLabels = {
       weekday: '星期',
       date: '日期',
@@ -176,20 +181,20 @@ export async function fillExcelData(data) {
       machineTotalFlow: '机器总超滤量',
       dayManualInjection: '日间手工注入量',
       dayInjectionConcentration: '日间注入浓度',
-      dayUltrafiltration: '日间超滤量',
-      machinePlusManualFlow: '机器+手工总超滤量',
+      dayUltrafiltration: ['手工超滤量', '日间超滤量'],
+      machinePlusManualFlow: ['今日总超滤量', '日总超滤量', '机器+手工总超滤量'],
       waterIntake: '饮水量',
       dialysateColor: '腹透液颜色'
     };
     const indices = {};
     const usedRows = new Set();
     Object.keys(rowLabels).forEach(key => {
-      const label = rowLabels[key];
+      const labels = [].concat(rowLabels[key]);
       let found = -1;
       for (let i = 0; i < rows.length; i++) {
         if (usedRows.has(i)) continue;
         const cellLabel = String(rows[i] && rows[i][0] !== undefined ? rows[i][0] : '').trim();
-        if (cellLabel === label) { found = i; usedRows.add(i); break; }
+        if (labels.includes(cellLabel)) { found = i; usedRows.add(i); break; }
       }
       indices[key] = found;
     });
@@ -225,8 +230,9 @@ export async function fillExcelData(data) {
     if (rows.length > dateRowIndex) {
       // 遍历日期行的所有列，查找目标日期（从列1开始，跳过表头列）
       for (let i = 1; i < rows[dateRowIndex].length; i++) {
-        const cellValueStr = String(rows[dateRowIndex][i]).trim();
-        const targetDateStr = String(targetDate).trim();
+        // 旧 Excel 里可能是横杠日期，统一归一化后比较
+        const cellValueStr = String(rows[dateRowIndex][i]).trim().replace(/-/g, '/');
+        const targetDateStr = String(targetDate).trim().replace(/-/g, '/');
         console.log(`[${new Date().toISOString()}] 比较日期: 列${i} = "${cellValueStr}" vs 目标 = "${targetDateStr}"`);
         if (cellValueStr === targetDateStr) {
           targetColumn = i;
@@ -411,7 +417,8 @@ function arrayBufferToBase64(buffer) {
  */
 export async function getWaterIntakeByDate(date) {
   try {
-    const yearMonth = date.substring(0, 7).replace('-', '');
+    const yearMonth = String(date || '').substring(0, 7).replace(/[\/\-]/g, '');
+    if (!/^\d{6}$/.test(yearMonth)) return 0;
     const fileName = `治疗记录${yearMonth}.xlsx`;
     const isMobile = Capacitor.isNativePlatform();
 
