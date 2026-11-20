@@ -29,6 +29,10 @@
             <span class="button-icon">🖨️</span>
             <span class="button-text">{{ isPrinting ? '准备打印...' : '打印 / 预览' }}</span>
           </button>
+          <button type="button" class="share-button" @click="shareExport" :disabled="isExporting || isImporting">
+            <span class="button-icon">📤</span>
+            <span class="button-text">分享 Excel</span>
+          </button>
           <button type="button" class="import-button" @click="triggerFileInput" :disabled="isExporting || isImporting">
             <span class="button-icon">📥</span>
             <span class="button-text">{{ isImporting ? '导入中...' : '导入治疗记录' }}</span>
@@ -155,9 +159,10 @@
 import { fillExcelData, getWaterIntakeByDate } from './utils/fillExcelData.js';
 import { saveTreatmentRecord } from './utils/database.js';
 import { initSQLite, saveTreatmentRecordToSQLite, getTreatmentRecordsByDateRangeSQLite, getRecordDate, parseRecordDate } from './utils/sqliteDb.js';
-import { importTreatmentRecordsFromExcel, exportMultipleRecordsToExcel, printExportedExcel, buildRangeFileName } from './utils/exportExcel.js';
+import { importTreatmentRecordsFromExcel, exportMultipleRecordsToExcel, printExportedExcel, shareExportedFile, buildRangeFileName } from './utils/exportExcel.js';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
+import { getExportDirectory } from './utils/nativePlatform.js';
 import WaterIntakeView from './components/WaterIntakeView.vue';
 
 export default {
@@ -393,14 +398,14 @@ export default {
       }
     },
 
-    /** 判断某个文件是否已存在于 Documents 目录 */
+    /** 判断某个文件是否已存在于应用文件目录 */
     async exportFileExists(fileName) {
       if (!fileName) return false;
       try {
-        const res = await Filesystem.readdir({ path: '', directory: Directory.Documents });
+        const res = await Filesystem.readdir({ path: '', directory: getExportDirectory() });
         return (res.files || []).some(f => f.name === fileName);
       } catch (error) {
-        console.warn(`[${new Date().toISOString()}] 读取 Documents 目录失败: ${error.message}`);
+        console.warn(`[${new Date().toISOString()}] 读取应用文件目录失败: ${error.message}`);
         return false;
       }
     },
@@ -441,6 +446,38 @@ export default {
         this.error = '打印失败，请重试';
       } finally {
         this.isPrinting = false;
+      }
+    },
+
+    /** 分享最近 28 天导出的 Excel（可发送到其他应用或另存到其他目录） */
+    async shareExport() {
+      this.error = '';
+      try {
+        this.isExporting = true;
+
+        let fileName = '';
+        const range = this.currentExportRange();
+        const expectedName = range ? buildRangeFileName(range.startDate, range.endDate) : '';
+        if (await this.exportFileExists(expectedName)) {
+          fileName = expectedName;
+          this.saveFileName = expectedName;
+        }
+
+        if (!fileName) {
+          const result = await this.doExport28Days({ openFile: false });
+          if (!result || !result.fileName) {
+            this.error = '分享失败：导出未完成';
+            return;
+          }
+          fileName = result.fileName;
+        }
+
+        await shareExportedFile(fileName);
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] 分享失败: ${error.message}`);
+        this.error = '分享失败，请重试';
+      } finally {
+        this.isExporting = false;
       }
     },
 
@@ -565,7 +602,7 @@ export default {
     },
 
     /**
-     * 一键导入 Documents 目录下的全部历史治疗记录文件
+     * 一键导入应用文件目录下的全部历史治疗记录文件
      * 包含月度文件（治疗记录202601.xlsx）与区间导出文件（治疗记录_2026-02-06_至_2026-03-05.xlsx）
      */
     async importAllHistory() {
@@ -579,7 +616,7 @@ export default {
         this.error = '';
         this.successMessage = '';
 
-        const listing = await Filesystem.readdir({ path: '', directory: Directory.Documents });
+        const listing = await Filesystem.readdir({ path: '', directory: getExportDirectory() });
         const names = this.sortHistoryFiles(
           listing.files
             .filter(f => f.type === 'file' && /^治疗记录.*\.xlsx$/.test(f.name))
@@ -587,7 +624,7 @@ export default {
         );
 
         if (names.length === 0) {
-          this.error = 'Documents 目录下未找到治疗记录文件';
+          this.error = '应用文件目录下未找到治疗记录文件';
           return;
         }
 
@@ -597,7 +634,7 @@ export default {
         const result = await this.importFromSources(names.map(name => ({
           name,
           load: async () => {
-            const fc = await Filesystem.readFile({ path: name, directory: Directory.Documents });
+            const fc = await Filesystem.readFile({ path: name, directory: getExportDirectory() });
             return this.base64ToArrayBuffer(fc.data);
           }
         })));
@@ -747,6 +784,34 @@ export default {
   transform: none;
   box-shadow: none;
   opacity: 0.7;
+}
+
+/* 分享按钮（紫色区分） */
+.share-button {
+  background: linear-gradient(135deg, #8e44ad 0%, #6c3483 100%);
+  color: #fff;
+  padding: 16px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(142, 68, 173, 0.35);
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+.share-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.share-button:disabled {
+  background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%);
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
 }
 
 /* 一键导入全部历史数据按钮（青绿色区分） */

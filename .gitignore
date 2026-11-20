@@ -9,3 +9,11 @@ keystore.properties
 *.jks
 *.iml
 .DS_Store
+
+# ===== 隐私数据与上架材料，禁止上传公开仓库 =====
+backup/
+store/
+export_result.png
+*.db
+*.db-shm
+*.db-wal

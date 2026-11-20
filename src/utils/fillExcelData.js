@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
 import { DateTime } from 'luxon';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { getExportDirectory } from './nativePlatform.js';
 import { saveTreatmentRecord, getTreatmentRecordByDate } from './database';
 import { parseRecordDate } from './sqliteDb';
 
@@ -125,7 +126,7 @@ export async function fillExcelData(data) {
           // 使用Capacitor Filesystem插件读取Documents目录下的文件
           const fileContent = await Filesystem.readFile({
             path: fileName,
-            directory: Directory.Documents
+            directory: getExportDirectory()
           });
 
           // 将base64编码的文件内容解码为二进制字符串
@@ -366,7 +367,7 @@ export async function fillExcelData(data) {
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: getExportDirectory(),
         recursive: true
       });
 
@@ -382,7 +383,7 @@ export async function fillExcelData(data) {
       success: true,
       weekday: weekday,
       message: isMobile
-        ? `数据已成功保存到移动端 Documents 目录: ${fileName}`
+        ? `数据已成功保存到应用文件目录: ${fileName}`
         : '数据已成功保存到Excel文件'
     };
 
@@ -433,7 +434,7 @@ export async function getWaterIntakeByDate(date) {
     try {
       fileContent = await Filesystem.readFile({
         path: fileName,
-        directory: Directory.Documents
+        directory: getExportDirectory()
       });
     } catch (e) {
       // 文件不存在，当日饮水量为0

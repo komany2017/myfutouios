@@ -1,9 +1,15 @@
 import * as XLSX from 'xlsx';
 import { DateTime } from 'luxon';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { FileOpener } from '@capacitor-community/file-opener';
+import { Filesystem } from '@capacitor/filesystem';
 import { Printer } from '@capgo/capacitor-printer';
+import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import {
+  getExportDirectory,
+  openExportedFile,
+  readExportFile,
+  getExportFileUri
+} from './nativePlatform.js';
 
 /**
  * 导出多个治疗记录到Excel文件
@@ -220,33 +226,29 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null, op
     }
 
     if (isMobile) {
-      // 移动端：使用 Capacitor Filesystem 保存到 Documents 目录
-      console.log(`[${new Date().toISOString()}] 检测到移动平台，准备保存文件到Documents目录`);
+      // 移动端：保存到应用专属文件目录（无需存储权限）
+      console.log(`[${new Date().toISOString()}] 检测到移动平台，准备保存文件到应用文件目录`);
       const excelBuffer = styledBuffer || XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
       const base64Data = arrayBufferToBase64(excelBuffer);
 
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: getExportDirectory(),
         recursive: true
       });
 
-      console.log(`[${new Date().toISOString()}] Excel文件已保存到移动端 Documents 目录: ${fileName}`);
-      savePath = `${Directory.Documents}/${fileName}`;
+      console.log(`[${new Date().toISOString()}] Excel文件已保存到应用文件目录: ${fileName}`);
+      savePath = `应用文件目录/${fileName}`;
 
-      // 保存后直接用系统默认的表格应用打开（打印流程可跳过）
+      // 保存后用系统能力打开：Android 调起默认表格 App；iOS 走系统分享面板
       if (options.openFile !== false) {
         try {
-          const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Documents });
-          await FileOpener.open({
-            filePath: uri,
-            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            openWithDefault: true
-          });
-          console.log(`[${new Date().toISOString()}] 已调用外部应用打开: ${uri}`);
+          const { uri } = await Filesystem.getUri({ path: fileName, directory: getExportDirectory() });
+          await openExportedFile(uri, fileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          console.log(`[${new Date().toISOString()}] 已调用系统能力打开文件: ${uri}`);
         } catch (error) {
-          console.warn(`[${new Date().toISOString()}] 自动打开失败（可能未安装表格应用）: ${error.message}`);
+          console.warn(`[${new Date().toISOString()}] 自动打开失败（用户可稍后手动打开）: ${error.message}`);
         }
       }
     } else if (styledBuffer) {
@@ -271,7 +273,7 @@ export async function exportMultipleRecordsToExcel(records, dateRange = null, op
     return {
       success: true,
       message: isMobile
-        ? `数据已成功导出到移动端 Documents 目录: ${fileName}`
+        ? `数据已成功导出到应用文件目录: ${fileName}`
         : `数据已成功导出到Excel文件: ${fileName}`,
       fileName: fileName,
       savePath: isMobile ? savePath : '',
@@ -370,7 +372,7 @@ async function buildStyledWorkbookBuffer(rows) {
 export async function printExportedExcel(fileName) {
   if (!fileName) throw new Error('请先导出 Excel 文件');
 
-  const { data } = await Filesystem.readFile({ path: fileName, directory: Directory.Documents });
+  const { data } = await readExportFile(fileName);
   const wb = XLSX.read(data, { type: 'base64' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) throw new Error('Excel 内容为空');
@@ -392,6 +394,19 @@ export async function printExportedExcel(fileName) {
 <body><h1>${title}</h1>${table}</body></html>`;
 
   await Printer.printHtml({ name: title, html });
+}
+
+/**
+ * 把已导出的 Excel 文件交给系统分享面板（可发送到微信、邮件或另存到其他目录）
+ * @param {string} fileName 应用文件目录下的导出文件名
+ */
+export async function shareExportedFile(fileName) {
+  if (!fileName) throw new Error('请先导出 Excel 文件');
+  const { uri } = await getExportFileUri(fileName);
+  await Share.share({
+    title: String(fileName).replace(/\.xlsx$/i, ''),
+    files: [uri]
+  });
 }
 
 /**

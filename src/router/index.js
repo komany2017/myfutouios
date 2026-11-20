@@ -8,6 +8,8 @@ import WaterPage from '../WaterPage.vue';
 import LegacyPage from '../App.vue';
 import SqlConsolePage from '../SqlConsolePage.vue';
 import DatabaseBackupPage from '../DatabaseBackupPage.vue';
+import PrivacyPage from '../PrivacyPage.vue';
+import AgreementPage from '../AgreementPage.vue';
 
 const routes = [
   {
@@ -63,6 +65,18 @@ const routes = [
     component: DatabaseBackupPage,
     name: 'DatabaseBackup',
     meta: { title: '数据库备份' }
+  },
+  {
+    path: '/privacy',
+    component: PrivacyPage,
+    name: 'Privacy',
+    meta: { title: '隐私政策' }
+  },
+  {
+    path: '/agreement',
+    component: AgreementPage,
+    name: 'Agreement',
+    meta: { title: '用户协议' }
   },
   {
     path: '/:pathMatch(.*)*',

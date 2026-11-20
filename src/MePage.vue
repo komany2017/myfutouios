@@ -43,6 +43,21 @@
     </section>
 
     <section class="panel">
+      <button type="button" class="row" @click="$router.push('/privacy')">
+        <span>隐私政策</span>
+        <span class="chev">›</span>
+      </button>
+      <button type="button" class="row" @click="$router.push('/agreement')">
+        <span>用户协议</span>
+        <span class="chev">›</span>
+      </button>
+      <button type="button" class="row" @click="revokeConsent">
+        <span>撤回隐私授权</span>
+        <span class="chev">›</span>
+      </button>
+    </section>
+
+    <section class="panel">
       <div class="row static">
         <span>治疗记录</span>
         <b>{{ recordCount }} 条</b>
@@ -56,6 +71,10 @@
         <b>1.0.0</b>
       </div>
     </section>
+
+    <p class="disclaimer">
+      本应用仅用于个人记录，不提供诊断或治疗建议，具体治疗方案请遵医嘱。全部数据仅保存在本机，不会上传。
+    </p>
   </div>
 </template>
 
@@ -95,6 +114,10 @@ export default {
       const value = Number(this.waterLimit);
       this.waterLimit = value > 0 ? value : 1000;
       localStorage.setItem('waterLimit', String(this.waterLimit));
+    },
+    revokeConsent() {
+      localStorage.removeItem('privacy_consent_v1');
+      window.location.reload();
     }
   }
 };
@@ -234,6 +257,13 @@ export default {
 .limit i {
   font-style: normal;
   font-size: 11px;
+  color: #9aa0a6;
+}
+
+.disclaimer {
+  margin: 4px 16px 12px;
+  font-size: 11px;
+  line-height: 1.7;
   color: #9aa0a6;
 }
 </style>

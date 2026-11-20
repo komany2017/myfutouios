@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
@@ -36,19 +36,17 @@
         </provider>
     </application>
 
-    <!-- Permissions -->
+    <!--
+      移除依赖库传递引入的生物识别权限（应用未使用指纹/人脸功能）
+    -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    
-    <!-- Storage permissions for Android 13 and below -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    
-    <!-- Permission for Android 13+ to access media files -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    
-    <!-- Permission for Android 13+ to manage files -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!--
+      本应用不申请任何敏感权限：
+      - 无网络请求，故不申请 INTERNET；
+      - 导出/备份文件写入应用专属目录（Android/data/<包名>/files），无需存储权限；
+      - 导入/恢复通过系统文件选择器由用户主动选择文件，无需读取存储权限；
+      - 不申请 MANAGE_EXTERNAL_STORAGE、READ_MEDIA_*、位置、相机、麦克风、通讯录等权限。
+    -->
 </manifest>

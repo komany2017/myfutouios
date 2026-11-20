@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">腹透记录</string>
     <string name="title_activity_main">腹透记录</string>
-    <string name="package_name">com.example.app</string>
-    <string name="custom_url_scheme">com.example.app</string>
+    <string name="package_name">com.komany.futou</string>
+    <string name="custom_url_scheme">com.komany.futou</string>
 </resources>

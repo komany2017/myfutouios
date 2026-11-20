@@ -1,0 +1,164 @@
+# Codemagic 云编译配置 —— 腹透记录 (Capacitor 8 + Vue 3)
+# ------------------------------------------------------------------
+# 本文件包含三个工作流：
+#   1) ios-unsigned-ipa     ★免费主推★  真机架构未签名 IPA，不需要任何
+#      Apple 账号，下载后用 Windows 上的 Sideloadly/AltStore 配合免费
+#      Apple ID 签名侧载到 iPhone（7 天续签一次）。
+#   2) ios-simulator-check 无签名模拟器构建：不需要 Apple 开发者账号，
+#      仅用于快速验证「npm 构建 → cap sync → Xcode 编译」链路是否通畅。
+#   3) ios-testflight      正式签名出包（付费方案）：需要 Apple Developer
+#      Program 账号 + App Store Connect API Key，上传 TestFlight。
+#
+# 【完全不花钱的路线】只用到工作流 1：
+#   Codemagic 每月免费 macOS 额度 → 产出未签名 IPA → 本机 Sideloadly 用
+#   你自己的免费 Apple ID 重签 → 装到 iPhone，每 7 天重签一次。
+#
+# 使用方法：
+#   1. 把整个项目推送到 Git 仓库（GitHub / GitLab / Bitbucket）。
+#      务必提交 patches/ 目录（printer 插件补丁，postinstall 依赖它）。
+#   2. 用 Codemagic 登录该仓库，扫描到本文件后即可在网页手动启动对应工作流。
+#   3. 手动启动 ios-unsigned-ipa，下载产出的 IPA 即可侧载。
+# ------------------------------------------------------------------
+
+workflows:
+  # ============ 工作流 1：★免费主推★ 真机未签名 IPA（无需任何账号）============
+  ios-unsigned-ipa:
+    name: iOS 未签名 IPA（供免费侧载）
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "App.xcodeproj"
+        XCODE_SCHEME: "App"
+    # 手动触发，节省免费分钟
+    scripts:
+      - name: 安装 Node 依赖（含 patch-package 补丁）
+        script: |
+          npm ci
+      - name: 构建 Web 产物到 dist
+        script: |
+          npm run build
+      - name: 同步 Web 产物到 iOS 工程（SPM，无需 pod install）
+        script: |
+          npx cap sync ios
+      - name: 归档真机架构 App（不做代码签名）
+        script: |
+          cd "$CM_BUILD_DIR/ios/App"
+          xcodebuild archive \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "$CM_BUILD_DIR/ios/App/build/App.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      - name: 打包为未签名 IPA（标准 Payload 结构，供 Sideloadly 重签）
+        script: |
+          STAGE="$CM_BUILD_DIR/ios/App/build/unsigned"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE/Payload"
+          cp -R "$CM_BUILD_DIR/ios/App/build/App.xcarchive/Products/Applications/"*.app "$STAGE/Payload/"
+          cd "$STAGE"
+          zip -qry "$CM_BUILD_DIR/futou-unsigned.ipa" Payload
+          echo "IPA 已生成:" && ls -lh "$CM_BUILD_DIR/futou-unsigned.ipa"
+    artifacts:
+      - futou-unsigned.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - ios/App/build/App.xcarchive/Products/Applications/*.app
+
+  # ============ 工作流 2：无签名验证（无需开发者账号）============
+  ios-simulator-check:
+    name: iOS 无签名编译验证
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "App.xcodeproj"
+        XCODE_SCHEME: "App"
+    # 不配置 triggering = 仅在 Codemagic 网页手动启动，节省免费分钟
+    scripts:
+      - name: 安装 Node 依赖（含 patch-package 补丁）
+        script: |
+          npm ci
+      - name: 构建 Web 产物到 dist
+        script: |
+          npm run build
+      - name: 同步 Web 产物到 iOS 工程（SPM，无需 pod install）
+        script: |
+          npx cap sync ios
+      - name: 无签名编译到 iOS 模拟器
+        script: |
+          cd ios/App
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+  # ============ 工作流 3：正式签名出包到 TestFlight ============
+  ios-testflight:
+    name: iOS 签名出包并上传 TestFlight
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: futou_appstore   # 与 Codemagic 网页中 Developer Portal 集成名一致
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.komany.futou
+      vars:
+        XCODE_PROJECT: "App.xcodeproj"
+        XCODE_SCHEME: "App"
+        APP_STORE_APPLE_ID: "0000000000"  # 改成 App Store Connect 里该 App 的 Apple ID
+    # 手动触发；如需推 tag 自动出包，可自行添加 triggering 段
+    scripts:
+      - name: 安装 Node 依赖（含 patch-package 补丁）
+        script: |
+          npm ci
+      - name: 构建 Web 产物到 dist
+        script: |
+          npm run build
+      - name: 同步 Web 产物到 iOS 工程（SPM，无需 pod install）
+        script: |
+          npx cap sync ios
+      - name: 应用代码签名配置
+        script: |
+          xcode-project use-profiles
+      - name: 递增构建号（从 App Store Connect 取最新值 +1）
+        script: |
+          cd $CM_BUILD_DIR/ios/App
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: 构建并签名 IPA
+        script: |
+          cd $CM_BUILD_DIR/ios/App
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - ios/App/build/ios/ipa/*.ipa
+      - ios/App/build/ios/xcarchive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - your-email@example.com       # 改成你的邮箱，构建完成后收通知
+        notify:
+          success: true
+          failure: true

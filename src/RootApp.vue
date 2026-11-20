@@ -1,12 +1,12 @@
 <template>
   <div class="root-container">
-    <router-view v-slot="{ Component }">
+    <router-view v-if="consented || isLegalRoute" v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <component :is="Component" />
       </transition>
     </router-view>
 
-    <nav class="tab-bar">
+    <nav v-if="consented" class="tab-bar">
       <router-link
         v-for="tab in tabs"
         :key="tab.path"
@@ -18,10 +18,16 @@
         <span class="tab-label">{{ tab.label }}</span>
       </router-link>
     </nav>
+
+    <PrivacyConsent v-if="!consented && !isLegalRoute" @accept="acceptConsent" />
   </div>
 </template>
 
 <script>
+import PrivacyConsent from './components/PrivacyConsent.vue';
+
+const CONSENT_KEY = 'privacy_consent_v1';
+
 const ICONS = {
   today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
   record: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
@@ -31,17 +37,29 @@ const ICONS = {
 
 export default {
   name: 'RootApp',
+  components: { PrivacyConsent },
   data() {
     return {
+      consented: localStorage.getItem(CONSENT_KEY) === '1',
       tabs: [
         { path: '/', label: '今日', icon: ICONS.today, match: ['/'] },
         { path: '/record', label: '记录', icon: ICONS.record, match: ['/record'] },
         { path: '/preview', label: '趋势', icon: ICONS.trend, match: ['/preview'] },
-        { path: '/me', label: '我的', icon: ICONS.me, match: ['/me', '/water', '/manage', '/protocol'] }
+        { path: '/me', label: '我的', icon: ICONS.me, match: ['/me', '/water', '/manage', '/protocol', '/sql', '/dbbak', '/privacy', '/agreement'] }
       ]
     };
   },
+  computed: {
+    isLegalRoute() {
+      return this.$route.path === '/privacy' || this.$route.path === '/agreement';
+    }
+  },
   methods: {
+    acceptConsent() {
+      localStorage.setItem(CONSENT_KEY, '1');
+      this.consented = true;
+      if (this.$route.path !== '/') this.$router.replace('/');
+    },
     isActive(tab) {
       const path = this.$route.path;
       return tab.match.some(p => (p === '/' ? path === '/' : path.startsWith(p)));

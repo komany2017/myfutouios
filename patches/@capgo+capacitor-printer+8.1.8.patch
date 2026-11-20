@@ -1,0 +1,373 @@
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/results.bin b/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/transformed/classes/classes_dex/classes.dex b/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..d5a2b43
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/.transforms/e212043ed6414cd65d90bccd19ed0f5e/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+new file mode 100644
+index 0000000..5c5db51
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.capgo.printer" >
++
++    <uses-sdk android:minSdkVersion="23" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+new file mode 100644
+index 0000000..e09e817
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+@@ -0,0 +1,18 @@
++{
++  "version": 3,
++  "artifactType": {
++    "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
++    "kind": "Directory"
++  },
++  "applicationId": "com.capgo.printer",
++  "variantName": "debug",
++  "elements": [
++    {
++      "type": "SINGLE",
++      "filters": [],
++      "attributes": [],
++      "outputFile": "AndroidManifest.xml"
++    }
++  ],
++  "elementType": "File"
++}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar
+new file mode 100644
+index 0000000..07bea9d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json b/node_modules/@capgo/capacitor-printer/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/annotations_typedef_file/debug/extractDebugAnnotations/typedefs.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/annotations_typedef_file/debug/extractDebugAnnotations/typedefs.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar b/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar
+new file mode 100644
+index 0000000..260aa32
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar b/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar
+new file mode 100644
+index 0000000..27a76be
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state
+new file mode 100644
+index 0000000..1c983fc
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+new file mode 100644
+index 0000000..0078489
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Sat Oct 24 11:01:27 CST 2026
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+new file mode 100644
+index 0000000..53bdb9d
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\debug\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\build\generated\res\resValues\debug"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\build\generated\res\resValues\debug"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+new file mode 100644
+index 0000000..c1c64e7
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\jniLibs"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\debug\jniLibs"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugShaders/merger.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+new file mode 100644
+index 0000000..3ca44e7
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\shaders"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\debug\shaders"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/packageDebugAssets/merger.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/packageDebugAssets/merger.xml
+new file mode 100644
+index 0000000..4c2ebe3
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/incremental/packageDebugAssets/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\assets"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\src\debug\assets"/></dataSet><dataSet config="generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\record-main\node_modules\@capgo\capacitor-printer\android\build\intermediates\shader_assets\debug\compileDebugShaders\out"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1$1.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1$1.class
+new file mode 100644
+index 0000000..f9acbfd
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1$1.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1.class
+new file mode 100644
+index 0000000..7caf1fb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$1.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$2.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$2.class
+new file mode 100644
+index 0000000..0ac5732
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$2.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$3.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$3.class
+new file mode 100644
+index 0000000..b75cb54
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$3.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$OnPrintFinishCallback.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$OnPrintFinishCallback.class
+new file mode 100644
+index 0000000..fe4f3d6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$OnPrintFinishCallback.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PdfDocumentAdapter.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PdfDocumentAdapter.class
+new file mode 100644
+index 0000000..af6c0d1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PdfDocumentAdapter.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PrintFinishAdapter.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PrintFinishAdapter.class
+new file mode 100644
+index 0000000..ccd9eb8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$PrintFinishAdapter.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$UriDocumentAdapter.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$UriDocumentAdapter.class
+new file mode 100644
+index 0000000..9666b14
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer$UriDocumentAdapter.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer.class
+new file mode 100644
+index 0000000..b25dca6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/Printer.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin$1.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin$1.class
+new file mode 100644
+index 0000000..d91bf1b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin$1.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin.class b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin.class
+new file mode 100644
+index 0000000..61e5bd8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes/com/capgo/printer/PrinterPlugin.class differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+new file mode 100644
+index 0000000..78ac5b8
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+@@ -0,0 +1,2 @@
++R_DEF: Internal format may change without notice
++local
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+new file mode 100644
+index 0000000..4980697
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+@@ -0,0 +1,7 @@
++1<?xml version="1.0" encoding="utf-8"?>
++2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++3    package="com.capgo.printer" >
++4
++5    <uses-sdk android:minSdkVersion="23" />
++6
++7</manifest>
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-printer.jar b/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-printer.jar
+new file mode 100644
+index 0000000..15cb0ec
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-printer.jar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml b/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+new file mode 100644
+index 0000000..5c5db51
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="com.capgo.printer" >
++
++    <uses-sdk android:minSdkVersion="23" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json b/node_modules/@capgo/capacitor-printer/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+new file mode 100644
+index 0000000..0637a08
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar b/node_modules/@capgo/capacitor-printer/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar
+new file mode 100644
+index 0000000..785dd89
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt b/node_modules/@capgo/capacitor-printer/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+new file mode 100644
+index 0000000..a1071f7
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+@@ -0,0 +1 @@
++com.capgo.printer
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/outputs/aar/capgo-capacitor-printer-debug.aar b/node_modules/@capgo/capacitor-printer/android/build/outputs/aar/capgo-capacitor-printer-debug.aar
+new file mode 100644
+index 0000000..decf5ba
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/outputs/aar/capgo-capacitor-printer-debug.aar differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/outputs/logs/manifest-merger-debug-report.txt b/node_modules/@capgo/capacitor-printer/android/build/outputs/logs/manifest-merger-debug-report.txt
+new file mode 100644
+index 0000000..7adea87
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-printer/android/build/outputs/logs/manifest-merger-debug-report.txt
+@@ -0,0 +1,16 @@
++-- Merging decision tree log ---
++manifest
++ADDED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml:1:1-2:12
++INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml:1:1-2:12
++	package
++		INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml
++	xmlns:android
++		ADDED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml:1:11-69
++uses-sdk
++INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml reason: use-sdk injection requested
++INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml
++INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml
++	android:targetSdkVersion
++		INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml
++	android:minSdkVersion
++		INJECTED from E:\record-main\node_modules\@capgo\capacitor-printer\android\src\main\AndroidManifest.xml
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1$1.class.uniqueId0 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1$1.class.uniqueId0
+new file mode 100644
+index 0000000..f9acbfd
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1$1.class.uniqueId0 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1.class.uniqueId2 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1.class.uniqueId2
+new file mode 100644
+index 0000000..7caf1fb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$1.class.uniqueId2 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$2.class.uniqueId8 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$2.class.uniqueId8
+new file mode 100644
+index 0000000..0ac5732
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$2.class.uniqueId8 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$3.class.uniqueId5 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$3.class.uniqueId5
+new file mode 100644
+index 0000000..b75cb54
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$3.class.uniqueId5 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$OnPrintFinishCallback.class.uniqueId1 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$OnPrintFinishCallback.class.uniqueId1
+new file mode 100644
+index 0000000..fe4f3d6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$OnPrintFinishCallback.class.uniqueId1 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PdfDocumentAdapter.class.uniqueId10 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PdfDocumentAdapter.class.uniqueId10
+new file mode 100644
+index 0000000..f89d56f
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PdfDocumentAdapter.class.uniqueId10 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PrintFinishAdapter.class.uniqueId6 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PrintFinishAdapter.class.uniqueId6
+new file mode 100644
+index 0000000..a082f2f
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$PrintFinishAdapter.class.uniqueId6 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$UriDocumentAdapter.class.uniqueId3 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$UriDocumentAdapter.class.uniqueId3
+new file mode 100644
+index 0000000..33ffbe8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer$UriDocumentAdapter.class.uniqueId3 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer.class.uniqueId9 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer.class.uniqueId9
+new file mode 100644
+index 0000000..77c8389
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/Printer.class.uniqueId9 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin$1.class.uniqueId4 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin$1.class.uniqueId4
+new file mode 100644
+index 0000000..d91bf1b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin$1.class.uniqueId4 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin.class.uniqueId7 b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin.class.uniqueId7
+new file mode 100644
+index 0000000..61e5bd8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/compileTransaction/stash-dir/PrinterPlugin.class.uniqueId7 differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin
+new file mode 100644
+index 0000000..2fe026a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-printer/android/build/tmp/compileDebugJavaWithJavac/previous-compilation-data.bin differ
+diff --git a/node_modules/@capgo/capacitor-printer/android/src/main/java/com/capgo/printer/Printer.java b/node_modules/@capgo/capacitor-printer/android/src/main/java/com/capgo/printer/Printer.java
+index 201fe15..5a80ae7 100644
+--- a/node_modules/@capgo/capacitor-printer/android/src/main/java/com/capgo/printer/Printer.java
++++ b/node_modules/@capgo/capacitor-printer/android/src/main/java/com/capgo/printer/Printer.java
+@@ -247,6 +247,13 @@ public class Printer {
+         }
+     }
+ 
++    private PrintAttributes defaultPrintAttributes() {
++        return new PrintAttributes.Builder()
++            .setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape())
++            .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
++            .build();
++    }
++
+     private void printDocument(File file, String name) throws Exception {
+         PrintManager printManager = (PrintManager) context.getSystemService(Context.PRINT_SERVICE);
+         if (printManager == null) {
+@@ -254,7 +261,7 @@ public class Printer {
+         }
+ 
+         PrintDocumentAdapter printAdapter = new PdfDocumentAdapter(file);
+-        printManager.print(name, printAdapter, new PrintAttributes.Builder().build());
++        printManager.print(name, printAdapter, defaultPrintAttributes());
+     }
+ 
+     private void printDocumentFromUri(Uri uri, String name) throws Exception {
+@@ -264,7 +271,7 @@ public class Printer {
+         }
+ 
+         PrintDocumentAdapter printAdapter = new UriDocumentAdapter(uri);
+-        printManager.print(name, printAdapter, new PrintAttributes.Builder().build());
++        printManager.print(name, printAdapter, defaultPrintAttributes());
+     }
+ 
+     private void createWebPrintJob(WebView webView, String name) {
+@@ -284,7 +291,7 @@ public class Printer {
+         PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(name);
+ 
+         if (callback == null) {
+-            printManager.print(name, printAdapter, new PrintAttributes.Builder().build());
++            printManager.print(name, printAdapter, defaultPrintAttributes());
+             return;
+         }
+ 
+@@ -311,7 +318,7 @@ public class Printer {
+             callback.onFinish();
+         });
+ 
+-        PrintJob job = printManager.print(name, proxy, new PrintAttributes.Builder().build());
++        PrintJob job = printManager.print(name, proxy, defaultPrintAttributes());
+ 
+         // print() is documented to return null on failure (despite its @NonNull annotation) and
+         // does so when the print feature is missing or the print dialog cannot be started. The
