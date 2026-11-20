@@ -6,7 +6,7 @@
     </header>
 
     <div v-if="isIOS" class="ios-tip">
-      iOS 沙盒下数据库文件位于应用私有目录，文件级备份/恢复可能不可用。建议改用「数据导入 / 导出」中的 Excel 导出功能备份你的记录。
+      iOS 上备份会生成数据库文件，可通过下方「分享备份文件」导出到「文件」App 或微信等；恢复时选择之前导出的 .db 文件即可。日常数据备份也更推荐用「数据导入 / 导出」里的 Excel 导出。
     </div>
 
     <section class="card">
@@ -42,7 +42,7 @@
       <div class="card-title">当前数据库</div>
       <div class="info">
         <div><span>文件名</span><b>{{ dbFileName }}</b></div>
-        <div><span>位置</span><b>应用私有 databases 目录</b></div>
+        <div><span>位置</span><b>{{ dbLocationText }}</b></div>
         <div><span>平台</span><b>{{ platformLabel }}</b></div>
       </div>
     </section>
@@ -50,17 +50,17 @@
 </template>
 
 <script>
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { initSQLite, closeSQLite, checkpointSQLite, DB_FILE_NAME } from './utils/sqliteDb.js';
 import {
   IS_NATIVE,
   IS_IOS,
   PLATFORM_LABEL,
-  getExportDirectory
+  getExportDirectory,
+  locateDatabaseFile,
+  clearDatabaseJournal
 } from './utils/nativePlatform.js';
-
-const DB_RELATIVE = `../databases/${DB_FILE_NAME}`;
 
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
@@ -81,6 +81,7 @@ export default {
       isNative: IS_NATIVE,
       isIOS: IS_IOS,
       platformLabel: PLATFORM_LABEL,
+      dbLocationText: IS_IOS ? '应用 Documents / Library 私有目录' : '应用私有 databases 目录',
       locationHint: IS_NATIVE
         ? `文件保存在应用专属目录，可通过系统分享发送到其他位置。${PLATFORM_LABEL === 'iOS' ? '在 iOS 上也可通过「文件」App 访问。' : ''}`
         : 'Web 端备份功能不可用，请在原生 App 中使用。'
@@ -111,7 +112,8 @@ export default {
         await checkpointSQLite();
         const target = this.safeName(this.backupPath).trim() || `futou_record_${Date.now()}.db`;
 
-        const src = await Filesystem.readFile({ path: DB_RELATIVE, directory: Directory.Data });
+        const dbLocation = await locateDatabaseFile(DB_FILE_NAME);
+        const src = await Filesystem.readFile({ path: dbLocation.path, directory: dbLocation.directory });
         await Filesystem.writeFile({
           path: target,
           data: src.data,
@@ -121,7 +123,7 @@ export default {
 
         const kb = Math.round((src.data.length * 0.75) / 1024);
         this.lastBackup = target;
-        this.log(`备份成功：应用文件目录/${target}（约 ${kb} KB）`);
+        this.log(`备份成功：应用文件目录/${target}（约 ${kb} KB，来源：${dbLocation.source}）`);
       } catch (error) {
         this.log(`备份失败：${error.message}`, 'err');
         console.error(`[${new Date().toISOString()}] 备份数据库失败`, error);
@@ -160,23 +162,20 @@ export default {
         await initSQLite();
         await closeSQLite();
 
+        // 定位数据库真实路径（Android: databases/；iOS: Documents 或 Library，自动探测）
+        const dbLocation = await locateDatabaseFile(DB_FILE_NAME);
+
         await Filesystem.writeFile({
-          path: DB_RELATIVE,
+          path: dbLocation.path,
           data: arrayBufferToBase64(buffer),
-          directory: Directory.Data,
+          directory: dbLocation.directory,
           recursive: true
         });
 
         // 清掉旧的 WAL/SHM，避免残留在日志文件里的数据覆盖刚恢复的库
-        for (const suffix of ['-wal', '-shm']) {
-          try {
-            await Filesystem.deleteFile({ path: `${DB_RELATIVE}${suffix}`, directory: Directory.Data });
-          } catch (e) {
-            // 文件可能本来就不存在
-          }
-        }
+        await clearDatabaseJournal(dbLocation);
 
-        this.log(`恢复成功：${file.name}（${Math.round(buffer.byteLength / 1024)} KB）`);
+        this.log(`恢复成功：${file.name}（${Math.round(buffer.byteLength / 1024)} KB，目标：${dbLocation.source}）`);
         this.log('应用即将重新加载以生效…', 'warn');
         setTimeout(() => window.location.reload(), 1200);
       } catch (error) {

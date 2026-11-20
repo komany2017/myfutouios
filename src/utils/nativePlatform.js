@@ -84,3 +84,57 @@ export async function writeExportFile(path, data) {
 export async function getExportFileUri(path) {
   return Filesystem.getUri({ path, directory: getExportDirectory() });
 }
+
+/**
+ * 定位 SQLite 数据库文件的真实位置（供备份/恢复使用）
+ * ------------------------------------------------------------------
+ * Android：插件把库放在 /data/data/<pkg>/databases，而 Directory.Data 指向
+ *          /data/data/<pkg>/files，所以库在 ../databases/<file>（原逻辑，已验证）。
+ * iOS：插件默认把库放在 Documents/<file>（Directory.Data 在 iOS 即 Documents）；
+ *      若配置了 iosDatabaseLocation，则可能在 Library/CapacitorDatabase 下。
+ *      各 iOS 版本/插件版本行为不完全一致，因此按候选顺序探测，返回第一个真实
+ *      存在的位置；恢复时若都不存在，用第一个候选作为写入目标。
+ *
+ * @param {string} dbFileName 数据库文件名（如 futou_record_dbSQLite.db）
+ * @returns {Promise<{path: string, directory: string, source: string}>}
+ */
+export async function locateDatabaseFile(dbFileName) {
+  if (IS_ANDROID) {
+    return { path: `../databases/${dbFileName}`, directory: Directory.Data, source: 'android-databases' };
+  }
+
+  if (IS_IOS) {
+    const candidates = [
+      { path: dbFileName, directory: Directory.Documents, source: 'ios-documents' },
+      { path: `CapacitorDatabase/${dbFileName}`, directory: Directory.Library, source: 'ios-library-capacitor' },
+      { path: dbFileName, directory: Directory.Library, source: 'ios-library' },
+      { path: dbFileName, directory: Directory.Data, source: 'ios-data' }
+    ];
+    for (const c of candidates) {
+      try {
+        const stat = await Filesystem.stat({ path: c.path, directory: c.directory });
+        if (stat && stat.size > 0) return c;
+      } catch (e) {
+        // 该候选不存在，继续下一个
+      }
+    }
+    // 都没找到：返回首选候选，让调用方写入/提示
+    return candidates[0];
+  }
+
+  // Web：抛错，由调用方处理
+  throw new Error('当前平台不支持数据库文件备份/恢复');
+}
+
+/**
+ * 删除数据库可能残留的 WAL/SHM 日志（路径需与 locateDatabaseFile 返回的一致）
+ */
+export async function clearDatabaseJournal(dbLocation) {
+  for (const suffix of ['-wal', '-shm']) {
+    try {
+      await Filesystem.deleteFile({ path: `${dbLocation.path}${suffix}`, directory: dbLocation.directory });
+    } catch (e) {
+      // 文件可能本来就不存在，忽略
+    }
+  }
+}
